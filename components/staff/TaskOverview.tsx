@@ -82,10 +82,10 @@ export function TaskOverview({ sessionId, onClose, initialTaskId }: TaskOverview
 
     setTasks(formattedTasks)
 
-    // Find initial task index
+    // Find initial task
     if (initialTaskId) {
-      const index = formattedTasks.findIndex((t: Task) => t.task_id === initialTaskId)
-      if (index !== -1) setCurrentIndex(index)
+      const task = formattedTasks.find((t: Task) => t.task_id === initialTaskId)
+      if (task) setSelectedTask(task)
     }
   }
 

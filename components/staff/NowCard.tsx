@@ -378,7 +378,6 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
                   }
                 }}
                 disabled={completing}
-                className="flex-1 bg-primary text-white py-4 rounded-xl text-lg font-bold hover:opacity-90 transition-all shadow-lg disabled:opacity-50"
               >
                 ✓ Confirm
               </button>

@@ -70,7 +70,7 @@ export function TodayStatus({ sessionId }: TodayStatusProps) {
 
       return {
         ...phase,
-        status: allComplete ? 'complete' : anyInProgress ? 'in_progress' : 'pending'
+        status: (allComplete ? 'complete' : anyInProgress ? 'in_progress' : 'pending') as 'pending' | 'complete' | 'in_progress'
       }
     })
 

@@ -235,12 +235,12 @@ export default function CompletedTasksPage() {
         ) : tasks.length === 0 ? (
           <div className="text-center py-12">
             <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No completed tasks on {formatDate(selectedDate)}</p>
+            <p className="text-muted-foreground">No completed tasks on {formatDate(selectedDate.toISOString())}</p>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground mb-3">
-              {tasks.length} task{tasks.length !== 1 ? 's' : ''} completed on {formatDate(selectedDate)}
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''} completed on {formatDate(selectedDate.toISOString())}
             </p>
             {tasks.map((task) => (
               <div

@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
 
     const { subscription } = await request.json()
 
+    // @ts-ignore - Supabase type inference issue
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert({

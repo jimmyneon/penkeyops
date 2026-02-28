@@ -171,7 +171,7 @@ export default function AnalyticsPage() {
           )
         )
       `)
-      .eq('site_id', selectedSiteId)
+      .eq('site_id', selectedSiteId!)
       .gte('started_at', startDate.toISOString())
       .lt('started_at', endDate.toISOString())
 
@@ -250,7 +250,7 @@ export default function AnalyticsPage() {
       const { data: sessions } = await supabase
         .from('shift_sessions')
         .select('shift_type')
-        .eq('site_id', selectedSiteId)
+        .eq('site_id', selectedSiteId!)
         .gte('started_at', dayStart.toISOString())
         .lt('started_at', dayEnd.toISOString())
         .limit(1)
@@ -260,7 +260,7 @@ export default function AnalyticsPage() {
       days.push({
         ...metrics,
         date: dayStart.toISOString().split('T')[0],
-        shiftType: (sessions?.[0] as Record<string, unknown>)?.shift_type as string || 'No shift'
+        shiftType: ((sessions?.[0] as unknown) as Record<string, unknown>)?.shift_type as string || 'No shift'
       })
 
       current.setDate(current.getDate() + 1)
