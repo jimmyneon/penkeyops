@@ -2,35 +2,37 @@
 
 import { useEffect, useState } from 'react'
 import { useUser } from '@/hooks/useUser'
+import { useAdminSite } from '@/hooks/useAdminSite'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
 import { Database } from '@/types/database'
+import { AdminNav } from '@/components/admin/AdminNav'
 
 type User = Database['public']['Tables']['users']['Row']
 
 export default function UsersPage() {
   const { user: currentUser, profile, loading: userLoading, isAdmin } = useUser()
+  const { selectedSiteId } = useAdminSite()
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
-    if (profile?.site_id) {
+    if (selectedSiteId) {
       loadUsers()
     }
-  }, [profile])
+  }, [selectedSiteId])
 
   const loadUsers = async () => {
-    if (!profile?.site_id) return
+    if (!selectedSiteId) return
 
     const { data } = await supabase
       .from('users')
       .select('*')
-      .eq('site_id', profile.site_id)
+      .eq('site_id', selectedSiteId)
       .order('full_name')
 
     setUsers(data || [])
@@ -65,26 +67,13 @@ export default function UsersPage() {
     )
   }
 
-  if (!currentUser || !profile || !isAdmin) {
-    router.push('/')
+  if (!currentUser || !isAdmin) {
     return null
   }
 
   return (
     <div className="min-h-screen pb-20">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-navy">User Management</h1>
-              <p className="text-sm text-gray-600">Manage staff accounts and roles</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/admin')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AdminNav title="User Management" userName={profile?.full_name} />
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
         {loading ? (

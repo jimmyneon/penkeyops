@@ -76,6 +76,24 @@ module.exports = {
       minWidth: {
         'touch': '44px',
       },
+      keyframes: {
+        wobble: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '25%': { transform: 'rotate(-2deg)' },
+          '75%': { transform: 'rotate(2deg)' },
+        },
+        'wobble-scale': {
+          '0%': { transform: 'scale(1.1) rotate(0deg)' },
+          '25%': { transform: 'scale(1.05) rotate(-2deg)' },
+          '50%': { transform: 'scale(1.02) rotate(0deg)' },
+          '75%': { transform: 'scale(1.01) rotate(2deg)' },
+          '100%': { transform: 'scale(1) rotate(0deg)' },
+        },
+      },
+      animation: {
+        wobble: 'wobble 0.5s ease-in-out',
+        'wobble-scale': 'wobble-scale 0.6s ease-out',
+      },
     },
   },
   plugins: [],

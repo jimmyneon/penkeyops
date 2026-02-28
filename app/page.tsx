@@ -6,6 +6,7 @@ import { useShiftSession } from '@/hooks/useShiftSession'
 import { NowCard } from '@/components/staff/NowCard'
 import { ComingUp } from '@/components/staff/ComingUp'
 import { GroupChecklist } from '@/components/staff/GroupChecklist'
+import { EndOfDayModal } from '@/components/staff/EndOfDayModal'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Menu, X, ClipboardList, Thermometer, Trash2, Package, AlertTriangle, User } from 'lucide-react'
@@ -18,7 +19,7 @@ export default function Home() {
   const [showGroupChecklist, setShowGroupChecklist] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string } | null>(null)
   const [showMenu, setShowMenu] = useState(false)
-  const [autoStarting, setAutoStarting] = useState(false)
+  const [showEndOfDay, setShowEndOfDay] = useState(false)
 
   useEffect(() => {
     if (!loading && (!user || !profile)) {
@@ -26,51 +27,70 @@ export default function Home() {
     }
   }, [loading, user, profile, router])
 
-  // Auto-create shift if none exists
+  // Auto-create session if none exists for today
   useEffect(() => {
-    const autoStartShift = async () => {
-      if (!user || !profile?.site_id || activeSession || autoStarting || loading) return
+    const autoCreateSession = async () => {
+      if (!user || !profile?.site_id || activeSession || loading) return
       
-      setAutoStarting(true)
+      // Check if a session already exists for today (complete or incomplete)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const { data: existingSession } = await supabase
+        .from('shift_sessions')
+        .select('id')
+        .eq('site_id', profile.site_id)
+        .gte('started_at', today.toISOString())
+        .limit(1)
+        .maybeSingle()
+      
+      // If session exists for today, don't create a new one
+      if (existingSession) {
+        console.log('Session already exists for today, skipping auto-create')
+        return
+      }
+      
+      const shiftType = getShiftType()
       try {
-        const shiftType = getShiftType()
-        
-        const { data: session, error: sessionError } = await supabase
+        const { data: session, error } = await supabase
           .from('shift_sessions')
           .insert({
             site_id: profile.site_id,
-            started_at: new Date().toISOString(),
             started_by: user.id,
             shift_type: shiftType,
           })
           .select()
           .single()
 
-        if (sessionError) throw sessionError
+        if (error) throw error
 
-        const { data: template } = await supabase
-          .from('templates')
-          .select('id')
-          .eq('template_type', shiftType)
-          .single()
+        if (session) {
+          // Load ALL active templates (Opening + Mid + Closing)
+          // shift_type is for internal tracking only, not filtering
+          const { data: templates } = await supabase
+            .from('templates')
+            .select('id')
+            .eq('is_active', true)
+            .or(`site_id.eq.${profile.site_id},site_id.is.null`)
 
-        if (template) {
-          await supabase.rpc('create_checklist_from_template', {
-            p_shift_session_id: session.id,
-            p_template_id: template.id
-          })
+          if (templates && templates.length > 0) {
+            for (const template of templates) {
+              await supabase.rpc('create_checklist_from_template', {
+                p_shift_session_id: session.id,
+                p_template_id: template.id,
+              })
+            }
+          }
         }
-        
+
         refreshSession()
       } catch (error) {
-        console.error('Error auto-starting shift:', error)
-      } finally {
-        setAutoStarting(false)
+        console.error('Error auto-creating session:', error)
       }
     }
 
-    autoStartShift()
-  }, [user, profile, activeSession, autoStarting, loading, supabase, refreshSession])
+    autoCreateSession()
+  }, [user, profile, activeSession, loading, supabase, refreshSession])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -227,9 +247,24 @@ export default function Home() {
       <main className="p-4 max-w-2xl mx-auto">
         {!activeSession ? (
           <div className="h-[60vh] flex items-center justify-center p-6">
-            <div className="text-center max-w-md">
+            <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground text-lg">Starting your shift...</p>
+              <p className="text-muted-foreground text-lg">Loading your shift...</p>
+            </div>
+          </div>
+        ) : activeSession.is_complete ? (
+          <div className="min-h-[80vh] flex items-center justify-center p-6">
+            <div className="text-center max-w-lg">
+              <div className="text-8xl mb-6">🎉</div>
+              <h1 className="text-5xl font-bold text-foreground mb-4">All Done for Today!</h1>
+              <p className="text-xl text-muted-foreground mb-8">
+                Have a lovely evening. See you tomorrow!
+              </p>
+              <div className="bg-muted/30 rounded-2xl p-6 mb-6">
+                <p className="text-sm text-muted-foreground">
+                  Shift completed at {new Date(activeSession.completed_at || '').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
             </div>
           </div>
         ) : (
@@ -237,21 +272,7 @@ export default function Home() {
             {/* NOW Card - 70% of screen */}
             <NowCard 
               sessionId={activeSession.id}
-              onEndShift={async () => {
-                try {
-                  await supabase
-                    .from('shift_sessions')
-                    .update({
-                      completed_by: user.id,
-                      completed_at: new Date().toISOString(),
-                      is_complete: true,
-                    })
-                    .eq('id', activeSession.id)
-                  refreshSession()
-                } catch (error) {
-                  console.error('Error completing shift:', error)
-                }
-              }}
+              onEndShift={() => setShowEndOfDay(true)}
               onTaskAction={(taskId, groupId, actionType) => {
                 if (actionType === 'group' && groupId) {
                   setSelectedGroup({ id: groupId, name: 'Task Group' })
@@ -278,14 +299,69 @@ export default function Home() {
             }}
           />
         )}
+
+        {/* End of Day Modal */}
+        {showEndOfDay && activeSession && (
+          <EndOfDayModal
+            sessionId={activeSession.id}
+            onClose={() => setShowEndOfDay(false)}
+            onConfirmEnd={async () => {
+              try {
+                // Mark End of Day task as complete
+                const { data: endOfDayTask } = await supabase
+                  .from('checklist_results')
+                  .select('id')
+                  .eq('checklist_instance_id', (await supabase
+                    .from('checklist_instances')
+                    .select('id, template_items!inner(title)')
+                    .eq('shift_session_id', activeSession.id)
+                    .eq('template_items.title', 'End of Day')
+                    .single()
+                  ).data?.id || '')
+                  .single()
+
+                if (endOfDayTask) {
+                  await supabase
+                    .from('checklist_results')
+                    .update({
+                      status: 'completed',
+                      completed_at: new Date().toISOString()
+                    })
+                    .eq('id', endOfDayTask.id)
+                }
+
+                // Mark shift as complete
+                await supabase
+                  .from('shift_sessions')
+                  .update({
+                    completed_by: user.id,
+                    completed_at: new Date().toISOString(),
+                    is_complete: true,
+                  })
+                  .eq('id', activeSession.id)
+                
+                setShowEndOfDay(false)
+                refreshSession()
+              } catch (error) {
+                console.error('Error completing shift:', error)
+              }
+            }}
+          />
+        )}
       </main>
     </div>
   )
 
   function getShiftType(): 'opening' | 'mid' | 'closing' {
     const hour = new Date().getHours()
-    if (hour < 9) return 'opening'
-    if (hour < 16) return 'mid'
+    // Business hours: 8:30am - 5pm
+    // Opening: 8am - 10am
+    // Operational (mid): 10am - 2pm
+    // Closing: 2pm - 5pm
+    if (hour >= 8 && hour < 10) return 'opening'
+    if (hour >= 10 && hour < 14) return 'mid'
+    if (hour >= 14 && hour < 17) return 'closing'
+    // Outside business hours - default to closing
     return 'closing'
   }
 }

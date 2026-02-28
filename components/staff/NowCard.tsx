@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { Clock, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { TemperatureModal } from './TemperatureModal'
 
 interface NowAction {
@@ -17,6 +17,7 @@ interface NowAction {
   priority: string
   is_critical: boolean
   task_count: number | null
+  never_goes_red?: boolean
 }
 
 interface NowCardProps {
@@ -34,6 +35,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
   const [slideOut, setSlideOut] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showTempModal, setShowTempModal] = useState(false)
+  const [shouldWobble, setShouldWobble] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -87,9 +89,21 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     return () => clearInterval(interval)
   }, [nowAction])
 
+  // Force re-render every 30 seconds to update color states in real-time
+  const [, forceUpdate] = useState({})
+  useEffect(() => {
+    const colorUpdateInterval = setInterval(() => {
+      forceUpdate({}) // Create new object to force re-render
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(colorUpdateInterval)
+  }, [])
+
   const loadNowAction = async () => {
     if (!sessionId) return
 
+    console.log('Loading NOW action for session:', sessionId)
+    
     const { data, error } = await supabase.rpc('resolve_now_action', {
       p_session_id: sessionId
     })
@@ -100,28 +114,34 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       return
     }
 
+    console.log('Resolver returned:', data?.[0]?.title || 'No tasks', 'Task ID:', data?.[0]?.task_id)
+    
     setNowAction(data?.[0] || null)
     setLoading(false)
   }
 
   const getUrgencyColor = () => {
-    if (!nowAction) return 'bg-primary'
+    if (!nowAction) return 'bg-green-500'
     
-    // Calculate minutes until due
+    // Recurring rhythm tasks (never_goes_red flag) always stay green
+    // Normal tasks (tick, data_entry, group) will still go red when overdue
+    if (nowAction.never_goes_red) return 'bg-green-500'
+    
+    // Calculate minutes until due in real-time (client-side)
     const minutesUntilDue = nowAction.due_time ? calculateMinutesUntilDue(nowAction.due_time) : null
     
-    // Critical overdue - red with pulse
-    if (nowAction.is_overdue && nowAction.is_critical) return 'bg-red-600 animate-pulse'
-    // Regular overdue - red
-    if (nowAction.is_overdue) return 'bg-red-500'
+    // Overdue (negative minutes) - red
+    if (minutesUntilDue !== null && minutesUntilDue < 0) {
+      return nowAction.is_critical ? 'bg-red-600 animate-pulse' : 'bg-red-500'
+    }
     
     // Due very soon (<15 min) - yellow with subtle pulse
     if (minutesUntilDue !== null && minutesUntilDue < 15) return 'bg-yellow-500 animate-pulse-slow'
     // Due soon (15-30 min) - amber
     if (minutesUntilDue !== null && minutesUntilDue < 30) return 'bg-amber-500'
     
-    // On time - orange (Penkey primary)
-    return 'bg-primary'
+    // On time - green (clear, positive, no anxiety)
+    return 'bg-green-500'
   }
   
   const calculateMinutesUntilDue = (dueTime: string) => {
@@ -137,20 +157,25 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
   const getCountdownText = () => {
     if (!nowAction?.due_time) return null
     
-    if (nowAction.is_overdue && nowAction.overdue_minutes) {
-      return `${nowAction.overdue_minutes} minutes overdue`
-    }
-    
+    // Calculate minutes until due in real-time (client-side)
     const minutesUntilDue = calculateMinutesUntilDue(nowAction.due_time)
-    if (minutesUntilDue < 0) return null
     
-    if (minutesUntilDue < 60) {
-      return `Due in ${minutesUntilDue} minutes`
+    // Red: Overdue - show "X minutes overdue"
+    if (minutesUntilDue < 0) {
+      const overdueMinutes = Math.abs(minutesUntilDue)
+      return `${overdueMinutes} minute${overdueMinutes !== 1 ? 's' : ''} overdue`
     }
     
-    const hours = Math.floor(minutesUntilDue / 60)
-    const mins = minutesUntilDue % 60
-    return `Due in ${hours}h ${mins}m`
+    // Yellow/Amber: Due soon - show "Due in X minutes" or "Due now"
+    if (minutesUntilDue < 30) {
+      if (minutesUntilDue === 0) return 'Due now'
+      return `Due in ${minutesUntilDue} minute${minutesUntilDue !== 1 ? 's' : ''}`
+    }
+    
+    // Green: On time - show "Due by HH:MM"
+    const [hours, minutes] = nowAction.due_time.split(':').map(Number)
+    const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    return `Due by ${formattedTime}`
   }
 
   const getButtonText = () => {
@@ -174,31 +199,16 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     return null
   }
 
-  // Session active but no tasks - check if can end shift
+  // No tasks remaining - shift is complete (End of Day task was the last one)
   if (!nowAction) {
-    const currentHour = new Date().getHours()
-    const canEndShift = currentHour >= 17 // After 5pm
-
     return (
       <div className="h-[60vh] flex items-center justify-center p-6">
         <div className="text-center max-w-md">
-          <CheckCircle2 className="h-24 w-24 text-accent mx-auto mb-6" />
-          <h1 className="text-4xl font-bold text-foreground mb-4">All Tasks Complete!</h1>
-          {canEndShift ? (
-            <>
-              <p className="text-muted-foreground text-lg mb-8">Ready to end your shift</p>
-              <button
-                onClick={onEndShift}
-                className="bg-accent text-white px-8 py-4 rounded-2xl text-xl font-bold hover:opacity-90 transition-opacity shadow-lg"
-              >
-                END SHIFT
-              </button>
-            </>
-          ) : (
-            <p className="text-muted-foreground text-lg">
-              All tasks done! You can end your shift after 5:00 PM
-            </p>
-          )}
+          <div className="text-8xl mb-6">✨</div>
+          <h1 className="text-4xl font-bold text-foreground mb-4">All Done for Today!</h1>
+          <p className="text-xl text-muted-foreground">
+            Great work! Check back tomorrow for your next shift.
+          </p>
         </div>
       </div>
     )
@@ -208,19 +218,34 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* DONE overlay */}
+      {/* DONE Animation Overlay */}
       {showDone && (
-        <div className="absolute inset-0 flex items-center justify-center z-50 bg-teal-600 rounded-3xl animate-fade-in">
+        <div 
+          className="absolute inset-0 bg-primary rounded-3xl flex items-center justify-center z-30 cursor-pointer"
+          onClick={() => {
+            // Skip animation immediately
+            setShowDone(false)
+            setSlideOut(false)
+            setShouldWobble(true)
+            setTimeout(() => setShouldWobble(false), 600)
+          }}
+        >
           <div className="text-center">
-            <div className="text-8xl font-bold text-white mb-4 animate-bounce">✓</div>
+            <div className="text-6xl mb-2">✓</div>
             <div className="text-4xl font-bold text-white">DONE!</div>
           </div>
         </div>
       )}
       
-      <div className={`${urgencyColor} rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white transition-all duration-300 ${
-        slideOut ? '-translate-x-full opacity-0' : 'translate-x-0 opacity-100 animate-slide-in-right'
-      }`}>
+      <div 
+        className={`${urgencyColor} rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white ${
+          slideOut ? 'opacity-0' : 'opacity-100'
+        }`}
+        style={{
+          animation: shouldWobble ? 'wobble-scale 0.6s ease-out' : 'none',
+          transition: slideOut ? 'opacity 0.3s ease-out' : 'none'
+        }}
+      >
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-4">
             {nowAction.is_overdue ? (
@@ -229,23 +254,12 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
               <Clock className="h-8 w-8" />
             )}
             <div className="flex-1">
-              <p className="text-sm font-medium opacity-90">
-                {nowAction.is_overdue ? 'OVERDUE' : 'NOW'}
-              </p>
               {getCountdownText() && (
-                <p className="text-lg font-bold mt-1">
+                <p className="text-2xl font-bold">
                   {getCountdownText()}
                 </p>
               )}
-              {nowAction.due_time && (
-                <p className="text-xs opacity-75">Due: {nowAction.due_time}</p>
-              )}
             </div>
-            {nowAction.is_critical && (
-              <div className="bg-white/20 px-3 py-1 rounded-full">
-                <p className="text-xs font-bold">CRITICAL</p>
-              </div>
-            )}
           </div>
 
           <h1 className="text-3xl md:text-4xl font-bold mb-3">
@@ -255,72 +269,12 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
             )}
           </h1>
 
-          {nowAction.instruction && (
+          {nowAction.instruction && nowAction.instruction !== nowAction.title && (
             <p className="text-lg opacity-90 leading-relaxed">
               {nowAction.instruction}
             </p>
           )}
         </div>
-
-        {/* Confirmation Dialog */}
-        {showConfirm && (
-          <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border-2 border-white/30">
-            <p className="text-white text-xl font-semibold mb-4 text-center">
-              Mark this task as complete?
-            </p>
-            <div className="flex gap-4">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 bg-white/20 text-white py-4 rounded-xl text-lg font-bold hover:bg-white/30 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (completing) return
-                  setCompleting(true)
-                  setShowConfirm(false)
-                  
-                  try {
-                    const { error } = await supabase
-                      .from('checklist_results')
-                      .update({
-                        status: 'completed',
-                        completed_at: new Date().toISOString()
-                      })
-                      .eq('id', nowAction.task_id)
-                    
-                    if (error) throw error
-                    
-                    // Show DONE animation
-                    setShowDone(true)
-                    
-                    // After 800ms, slide out
-                    setTimeout(() => {
-                      setSlideOut(true)
-                    }, 800)
-                    
-                    // After slide out, load next task
-                    setTimeout(() => {
-                      setShowDone(false)
-                      setSlideOut(false)
-                      loadNowAction()
-                    }, 1200)
-                  } catch (error) {
-                    console.error('Error completing task:', error)
-                    alert('Failed to complete task')
-                  } finally {
-                    setCompleting(false)
-                  }
-                }}
-                disabled={completing}
-                className="flex-1 bg-white text-foreground py-4 rounded-xl text-lg font-bold hover:bg-white/90 transition-all shadow-lg disabled:opacity-50"
-              >
-                ✓ Confirm
-              </button>
-            </div>
-          </div>
-        )}
 
         <button
           onClick={() => {
@@ -342,12 +296,95 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
             setShowConfirm(true)
           }}
           disabled={completing || showConfirm}
-          className="w-full bg-white text-foreground py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg flex items-center justify-center gap-3 disabled:opacity-50"
+          className="w-full bg-white text-foreground py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg flex items-center justify-center disabled:opacity-50"
         >
           {getButtonText()}
-          <ArrowRight className="h-8 w-8" />
         </button>
       </div>
+
+      {/* Confirmation Dialog Overlay */}
+      {showConfirm && (
+        <div className="absolute inset-0 flex items-center justify-center z-40 rounded-3xl">
+          <div className="bg-card rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4 border-2 border-border">
+            <p className="text-foreground text-xl font-semibold mb-6 text-center">
+              Mark this task as complete?
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 bg-muted text-foreground py-4 rounded-xl text-lg font-bold hover:bg-muted/80 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (completing) return
+                  setCompleting(true)
+                  setShowConfirm(false)
+                  
+                  try {
+                    console.log('Marking task complete:', nowAction.task_id, nowAction.title)
+                    
+                    const { data: updateData, error } = await supabase
+                      .from('checklist_results')
+                      .update({
+                        status: 'completed',
+                        completed_at: new Date().toISOString()
+                      })
+                      .eq('id', nowAction.task_id)
+                      .select()
+                    
+                    if (error) {
+                      console.error('Error updating task:', error)
+                      throw error
+                    }
+                    
+                    console.log('Task marked complete successfully:', updateData)
+                    
+                    // Check if this was the End of Day task
+                    const isEndOfDayTask = nowAction.title?.toLowerCase().includes('end of day') || 
+                                          nowAction.title?.toLowerCase().includes('confirm end')
+                    
+                    if (isEndOfDayTask && onEndShift) {
+                      // End of Day task completed - show performance summary
+                      setShowDone(true)
+                      setTimeout(() => {
+                        setShowDone(false)
+                        onEndShift()
+                      }, 800)
+                    } else {
+                      // Regular task - show DONE animation and load next task
+                      setShowDone(true)
+                      setShouldWobble(false)
+                      
+                      // After 600ms, load next task
+                      setTimeout(async () => {
+                        setShowDone(false)
+                        await loadNowAction()
+                        setShouldWobble(true)
+                        
+                        // Reset wobble after animation
+                        setTimeout(() => {
+                          setShouldWobble(false)
+                        }, 600)
+                      }, 600)
+                    }
+                  } catch (error) {
+                    console.error('Error completing task:', error)
+                    alert('Failed to complete task')
+                  } finally {
+                    setCompleting(false)
+                  }
+                }}
+                disabled={completing}
+                className="flex-1 bg-primary text-white py-4 rounded-xl text-lg font-bold hover:opacity-90 transition-all shadow-lg disabled:opacity-50"
+              >
+                ✓ Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Temperature Modal */}
       {showTempModal && nowAction && (
@@ -357,8 +394,13 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
           onClose={() => setShowTempModal(false)}
           onComplete={() => {
             setShowTempModal(false)
+            
+            // Pre-load next task data immediately
+            loadNowAction()
+            
             // Show DONE animation
             setShowDone(true)
+            setShouldWobble(false)
             
             setTimeout(() => {
               setSlideOut(true)
@@ -367,8 +409,13 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
             setTimeout(() => {
               setShowDone(false)
               setSlideOut(false)
-              loadNowAction()
+              setShouldWobble(true)
             }, 1200)
+            
+            // Reset wobble state after animation completes
+            setTimeout(() => {
+              setShouldWobble(false)
+            }, 1800)
           }}
         />
       )}

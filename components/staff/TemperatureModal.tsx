@@ -45,10 +45,20 @@ export function TemperatureModal({ taskId, taskTitle, onClose, onComplete }: Tem
 
       if (error) throw error
 
-      // Initialize with default temps
-      const appliancesWithTemps = (data || []).map(a => ({
-        ...a,
-        temperature: a.type === 'fridge' ? '4.0' : '-18.0'
+      // Load last known temperatures for each appliance
+      const appliancesWithTemps = await Promise.all((data || []).map(async (a) => {
+        const { data: lastLog } = await supabase
+          .from('temperature_logs')
+          .select('temperature')
+          .eq('appliance_id', a.id)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        return {
+          ...a,
+          temperature: lastLog?.temperature?.toString() || (a.type === 'fridge' ? '4.0' : '-18.0')
+        }
       }))
 
       setAppliances(appliancesWithTemps)

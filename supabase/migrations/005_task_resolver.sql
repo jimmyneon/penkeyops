@@ -237,10 +237,12 @@ BEGIN
   WHERE ci.shift_session_id = p_session_id
     AND cr.status = 'pending'
     AND cr.id != COALESCE(v_now_task_id, '00000000-0000-0000-0000-000000000000'::UUID)
-    AND ti.due_time IS NOT NULL
   ORDER BY 
-    ti.due_time ASC,
-    ti.priority ASC
+    -- Match resolver priority logic
+    ti.is_critical DESC,
+    ti.priority ASC,
+    ti.due_time ASC NULLS LAST,
+    ti.sort_order ASC
   LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql;

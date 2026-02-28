@@ -46,12 +46,24 @@ export function ShiftControls({ siteId, userId, activeSession, onSessionChange }
           .or(`site_id.eq.${siteId},site_id.is.null`)
 
         if (templates && templates.length > 0) {
+          console.log(`Creating checklists for ${templates.length} templates`)
           for (const template of templates) {
-            await supabase.rpc('create_checklist_from_template', {
+            console.log('Calling create_checklist_from_template with:', {
+              session_id: session.id,
+              template_id: template.id
+            })
+            const { data, error } = await supabase.rpc('create_checklist_from_template', {
               p_shift_session_id: session.id,
               p_template_id: template.id,
             })
+            if (error) {
+              console.error('RPC Error creating checklist:', error)
+            } else {
+              console.log('Checklist created successfully:', data)
+            }
           }
+        } else {
+          console.log('No templates found for shift type:', shiftType)
         }
       }
 

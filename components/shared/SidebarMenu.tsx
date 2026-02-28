@@ -11,12 +11,21 @@ interface SidebarMenuProps {
 export function SidebarMenu({ showMenu, setShowMenu }: SidebarMenuProps) {
   const router = useRouter()
 
-  if (!showMenu) return null
-
   return (
-    <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowMenu(false)}>
+    <>
+      {/* Overlay */}
       <div 
-        className="fixed left-0 top-0 bottom-0 w-80 bg-card shadow-2xl p-6"
+        className={`fixed inset-0 bg-black/50 z-50 transition-opacity duration-300 ${showMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setShowMenu(false)}
+      />
+      
+      {/* Menu Panel */}
+      <div 
+        className={`fixed left-0 top-0 bottom-0 w-80 bg-card shadow-2xl p-6 z-50 transform transition-transform duration-300 ease-out ${
+          showMenu 
+            ? 'translate-x-0' 
+            : '-translate-x-full'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
@@ -110,6 +119,6 @@ export function SidebarMenu({ showMenu, setShowMenu }: SidebarMenuProps) {
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }

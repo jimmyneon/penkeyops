@@ -12,7 +12,111 @@ serve(async (req) => {
 
     const now = new Date()
     const currentTime = now.toTimeString().slice(0, 5)
+    let sentCount = 0
 
+    // ============================================
+    // STEP 1: Check for due-soon tasks (15 min warning)
+    // ============================================
+    const { data: dueSoonResults } = await supabase
+      .from('checklist_results')
+      .select(`
+        *,
+        template_items (
+          title,
+          due_time,
+          priority,
+          is_critical,
+          no_notifications
+        ),
+        checklist_instances (
+          shift_session_id,
+          shift_sessions (
+            site_id,
+            started_by
+          )
+        )
+      `)
+      .eq('status', 'pending')
+      .not('template_items.due_time', 'is', null)
+
+    if (dueSoonResults) {
+      for (const result of dueSoonResults) {
+        const item = result.template_items
+        if (!item?.due_time || item.no_notifications) continue
+
+        const dueTime = new Date(`1970-01-01T${item.due_time}`)
+        const warningTime = new Date(dueTime)
+        warningTime.setMinutes(warningTime.getMinutes() - 15) // 15 min before due
+
+        const currentDateTime = new Date(`1970-01-01T${currentTime}`)
+
+        // Check if we're in the warning window (15 min before due, but not yet due)
+        if (currentDateTime >= warningTime && currentDateTime < dueTime) {
+          const userId = result.checklist_instances?.shift_sessions?.started_by
+          if (!userId) continue
+
+          // SINGLE-FIRE: Check if we've already sent a due_soon notification
+          const { data: existingNotification } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('related_id', result.id)
+            .eq('notification_type', 'due_soon')
+            .single()
+
+          if (existingNotification) continue
+
+          const { data: subscription } = await supabase
+            .from('push_subscriptions')
+            .select('subscription')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .single()
+
+          if (subscription) {
+            const payload = {
+              title: `Coming Up: ${item.title}`,
+              body: `This ${item.priority} task is due in 15 minutes.`,
+              data: {
+                url: '/',
+                resultId: result.id
+              }
+            }
+
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseServiceKey}`
+                },
+                body: JSON.stringify({
+                  subscription: subscription.subscription,
+                  payload
+                })
+              })
+
+              await supabase.from('notifications').insert({
+                user_id: userId,
+                related_id: result.id,
+                notification_type: 'due_soon',
+                title: payload.title,
+                message: payload.body,
+                sent_at: now.toISOString()
+              })
+
+              sentCount++
+            } catch (error) {
+              console.error('Failed to send due-soon notification:', error)
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================
+    // STEP 2: Check for overdue tasks
+    // ============================================
     const { data: overdueResults } = await supabase
       .from('checklist_results')
       .select(`
@@ -22,7 +126,8 @@ serve(async (req) => {
           due_time,
           grace_period_minutes,
           priority,
-          is_critical
+          is_critical,
+          no_notifications
         ),
         checklist_instances (
           shift_session_id,
@@ -41,11 +146,9 @@ serve(async (req) => {
       })
     }
 
-    let sentCount = 0
-
     for (const result of overdueResults) {
       const item = result.template_items
-      if (!item?.due_time) continue
+      if (!item?.due_time || item.no_notifications) continue
 
       const dueTime = new Date(`1970-01-01T${item.due_time}`)
       const gracePeriod = item.grace_period_minutes || 0
@@ -57,20 +160,17 @@ serve(async (req) => {
         const userId = result.checklist_instances?.shift_sessions?.started_by
         if (!userId) continue
 
-        const { data: lastNotification } = await supabase
+        // SINGLE-FIRE LOGIC: Check if we've already sent an overdue notification for this task
+        const { data: existingNotification } = await supabase
           .from('notifications')
-          .select('sent_at')
+          .select('id')
           .eq('user_id', userId)
-          .eq('checklist_result_id', result.id)
-          .order('sent_at', { ascending: false })
-          .limit(1)
+          .eq('related_id', result.id)
+          .eq('notification_type', 'task_overdue')
           .single()
 
-        const hoursSinceLastNotification = lastNotification
-          ? (now.getTime() - new Date(lastNotification.sent_at).getTime()) / (1000 * 60 * 60)
-          : 999
-
-        if (hoursSinceLastNotification < 1) continue
+        // If notification already sent for this task instance, skip
+        if (existingNotification) continue
 
         const { data: subscription } = await supabase
           .from('push_subscriptions')
@@ -104,8 +204,8 @@ serve(async (req) => {
 
             await supabase.from('notifications').insert({
               user_id: userId,
-              checklist_result_id: result.id,
-              notification_type: 'reminder',
+              related_id: result.id,
+              notification_type: 'task_overdue',
               title: payload.title,
               message: payload.body,
               sent_at: now.toISOString()

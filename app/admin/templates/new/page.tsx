@@ -18,6 +18,13 @@ interface TemplateItem {
   grace_period_minutes: number
   evidence_type: 'none' | 'note' | 'numeric' | 'photo'
   sort_order: number
+  task_type: 'tick' | 'group' | 'data_entry' | 'recurring'
+  interval_minutes?: number
+  active_window_start?: string
+  active_window_end?: string
+  max_occurrences?: number
+  never_goes_red?: boolean
+  no_notifications?: boolean
 }
 
 export default function NewTemplatePage() {
@@ -42,6 +49,7 @@ export default function NewTemplatePage() {
       grace_period_minutes: 0,
       evidence_type: 'none',
       sort_order: items.length,
+      task_type: 'tick',
     }
     setItems([...items, newItem])
   }
@@ -84,17 +92,35 @@ export default function NewTemplatePage() {
       if (templateError) throw templateError
 
       if (template && items.length > 0) {
-        const templateItems = items.map(item => ({
-          template_id: template.id,
-          title: item.title,
-          description: item.description,
-          priority: item.priority,
-          is_critical: item.is_critical,
-          due_time: item.due_time || null,
-          grace_period_minutes: item.grace_period_minutes,
-          evidence_type: item.evidence_type,
-          sort_order: item.sort_order,
-        }))
+        const templateItems = items.map(item => {
+          const baseItem = {
+            template_id: template.id,
+            title: item.title,
+            description: item.description,
+            priority: item.priority,
+            is_critical: item.is_critical,
+            due_time: item.due_time || null,
+            grace_period_minutes: item.grace_period_minutes,
+            evidence_type: item.evidence_type,
+            sort_order: item.sort_order,
+            task_type: item.task_type,
+          }
+          
+          // Add recurring fields if task_type is recurring
+          if (item.task_type === 'recurring') {
+            return {
+              ...baseItem,
+              interval_minutes: item.interval_minutes,
+              active_window_start: item.active_window_start,
+              active_window_end: item.active_window_end,
+              max_occurrences: item.max_occurrences,
+              never_goes_red: item.never_goes_red,
+              no_notifications: item.no_notifications,
+            }
+          }
+          
+          return baseItem
+        })
 
         const { error: itemsError } = await supabase
           .from('template_items')

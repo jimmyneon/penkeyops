@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,13 +18,77 @@ export function WasteLog({ sessionId, userId, onClose }: WasteLogProps) {
   const [reason, setReason] = useState<'expired' | 'damaged' | 'overproduction' | 'other'>('expired')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
+  const [foodItems, setFoodItems] = useState<Array<{ id: string; name: string; unit: string }>>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [filteredItems, setFilteredItems] = useState<Array<{ id: string; name: string; unit: string }>>([])
   const supabase = createClient()
+
+  useEffect(() => {
+    loadFoodItems()
+  }, [])
+
+  const loadFoodItems = async () => {
+    const { data } = await supabase
+      .from('items')
+      .select('id, name, unit')
+      .eq('is_active', true)
+      .order('usage_count', { ascending: false })
+    
+    if (data) {
+      setFoodItems(data)
+    }
+  }
+
+  const handleItemNameChange = (value: string) => {
+    setItemName(value)
+    
+    if (value.length > 0) {
+      const filtered = foodItems.filter(item => 
+        item.name.toLowerCase().includes(value.toLowerCase())
+      )
+      setFilteredItems(filtered)
+      setShowSuggestions(filtered.length > 0)
+    } else {
+      setShowSuggestions(false)
+    }
+  }
+
+  const selectItem = (item: { name: string; unit: string }) => {
+    setItemName(item.name)
+    setShowSuggestions(false)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // Check if item exists in food items database
+      const existingItem = foodItems.find(
+        item => item.name.toLowerCase() === itemName.toLowerCase()
+      )
+
+      // If item doesn't exist, add it to the database
+      if (!existingItem) {
+        console.log('Creating new food item:', itemName)
+        const { data: newItem, error: createError } = await supabase
+          .from('items')
+          .insert({
+            name: itemName,
+            category: 'Wastage',
+            unit: 'portion',
+            is_active: true
+          })
+          .select()
+          .single()
+
+        if (!createError && newItem) {
+          console.log('New food item created:', newItem)
+          // Reload food items for next time
+          loadFoodItems()
+        }
+      }
+
       const data = {
         item_name: itemName,
         quantity,
@@ -40,7 +104,7 @@ export function WasteLog({ sessionId, userId, onClose }: WasteLogProps) {
         notes: notes || null,
       })
 
-      alert('Waste logged successfully')
+      alert('✅ Waste logged successfully')
       setItemName('')
       setQuantity('')
       setReason('expired')
@@ -63,18 +127,39 @@ export function WasteLog({ sessionId, userId, onClose }: WasteLogProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Item Name *
             </label>
             <input
               type="text"
               value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
+              onChange={(e) => handleItemNameChange(e.target.value)}
+              onFocus={() => itemName && setShowSuggestions(filteredItems.length > 0)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               required
               className="w-full px-4 py-3 bg-white rounded-xl shadow-sm focus:ring-2 focus:ring-primary outline-none"
-              placeholder="What was wasted?"
+              placeholder="Start typing... (e.g., Chicken, Milk)"
+              autoComplete="off"
             />
+            {showSuggestions && filteredItems.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => selectItem(item)}
+                    className="w-full px-4 py-2 text-left hover:bg-orange-50 flex items-center justify-between"
+                  >
+                    <span className="font-medium text-gray-900">{item.name}</span>
+                    <span className="text-xs text-gray-500">{item.unit}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              💡 Type to search existing items, or enter a new one to add it automatically
+            </p>
           </div>
 
           <div>

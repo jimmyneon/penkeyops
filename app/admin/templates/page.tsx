@@ -2,35 +2,38 @@
 
 import { useEffect, useState } from 'react'
 import { useUser } from '@/hooks/useUser'
+import { useAdminSite } from '@/hooks/useAdminSite'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, ArrowLeft, Edit, Copy } from 'lucide-react'
+import { Plus, Edit, Copy } from 'lucide-react'
 import { Database } from '@/types/database'
+import { AdminNav } from '@/components/admin/AdminNav'
 
 type Template = Database['public']['Tables']['templates']['Row']
 
 export default function TemplatesPage() {
   const { user, profile, loading: userLoading, isAdmin } = useUser()
+  const { selectedSiteId } = useAdminSite()
   const router = useRouter()
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
-    if (profile?.site_id) {
+    if (selectedSiteId) {
       loadTemplates()
     }
-  }, [profile])
+  }, [selectedSiteId])
 
   const loadTemplates = async () => {
-    if (!profile?.site_id) return
+    if (!selectedSiteId) return
 
     const { data } = await supabase
       .from('templates')
       .select('*')
-      .or(`site_id.eq.${profile.site_id},site_id.is.null`)
+      .or(`site_id.eq.${selectedSiteId},site_id.is.null`)
       .order('created_at', { ascending: false })
 
     setTemplates(data || [])
@@ -46,12 +49,12 @@ export default function TemplatesPage() {
   }
 
   const duplicateTemplate = async (template: Template) => {
-    if (!user || !profile?.site_id) return
+    if (!user || !selectedSiteId) return
 
     const { data: newTemplate } = await supabase
       .from('templates')
       .insert({
-        site_id: profile.site_id,
+        site_id: selectedSiteId,
         name: `${template.name} (Copy)`,
         description: template.description,
         template_type: template.template_type,
@@ -103,27 +106,29 @@ export default function TemplatesPage() {
 
   return (
     <div className="min-h-screen pb-20">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-navy">Templates</h1>
-              <p className="text-sm text-gray-600">Manage checklist templates</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/admin')}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <Button onClick={createNewTemplate}>
-                <Plus className="h-5 w-5 mr-2" />
-                New Template
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminNav title="Templates" userName={profile?.full_name} />
+      
+      <div className="max-w-4xl mx-auto px-4 py-4">
+        <Button onClick={createNewTemplate} className="w-full mb-4">
+          <Plus className="h-5 w-5 mr-2" />
+          New Template
+        </Button>
+      </div>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="py-4">
+            <h3 className="font-semibold text-navy mb-2">📋 About Templates & Tasks</h3>
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Templates</strong> are reusable checklists that define what needs to be done during a shift (e.g., "Opening Checklist", "Closing Checklist").
+            </p>
+            <p className="text-sm text-gray-700">
+              Each template contains multiple <strong>Tasks</strong> - the individual items staff need to complete (e.g., "Check fridge temperature", "Clean coffee machine").
+              Click "Edit" on any template to manage its tasks.
+            </p>
+          </CardContent>
+        </Card>
+
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>

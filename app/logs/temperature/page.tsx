@@ -140,6 +140,32 @@ export default function TemperatureLogsPage() {
     return selectedDate.toDateString() === today.toDateString()
   }
 
+  const loadLastTemperature = async (applianceId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('temperature_logs')
+        .select('temperature')
+        .eq('appliance_id', applianceId)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+      
+      if (data && data.length > 0) {
+        setFormData(prev => ({ ...prev, temperature: data[0].temperature.toString() }))
+      }
+    } catch (error) {
+      console.error('Error loading last temperature:', error)
+    }
+  }
+
+  const handleApplianceChange = (applianceId: string) => {
+    setFormData({ ...formData, appliance_id: applianceId, temperature: '' })
+    if (applianceId) {
+      loadLastTemperature(applianceId)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.appliance_id || !formData.temperature) return
@@ -336,7 +362,7 @@ export default function TemperatureLogsPage() {
                 </label>
                 <select
                   value={formData.appliance_id}
-                  onChange={(e) => setFormData({ ...formData, appliance_id: e.target.value })}
+                  onChange={(e) => handleApplianceChange(e.target.value)}
                   required
                   className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground"
                 >
@@ -362,6 +388,11 @@ export default function TemperatureLogsPage() {
                   placeholder="e.g. 4.5"
                   className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground"
                 />
+                {formData.temperature && formData.appliance_id && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Pre-filled with last reading (you can adjust if needed)
+                  </p>
+                )}
               </div>
 
               <div>
