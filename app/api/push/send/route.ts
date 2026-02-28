@@ -2,14 +2,22 @@ import { createServerClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import webpush from 'web-push'
 
-webpush.setVapidDetails(
-  'mailto:admin@penkeyops.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
-
 export async function POST(request: NextRequest) {
   try {
+    // Setup VAPID details at runtime, not at module load time
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
+    
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      return NextResponse.json({ error: 'Push notifications not configured' }, { status: 500 })
+    }
+    
+    webpush.setVapidDetails(
+      'mailto:admin@penkeyops.com',
+      vapidPublicKey,
+      vapidPrivateKey
+    )
+
     const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
