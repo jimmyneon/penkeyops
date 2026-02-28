@@ -244,7 +244,7 @@ export default function Home() {
         </>
       )}
 
-      <main className="p-4 max-w-2xl mx-auto">
+      <main className="p-3 sm:p-4 max-w-2xl mx-auto">
         {!activeSession ? (
           <div className="h-[60vh] flex items-center justify-center p-6">
             <div className="text-center">

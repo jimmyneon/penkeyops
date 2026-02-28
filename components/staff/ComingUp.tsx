@@ -156,9 +156,9 @@ export function ComingUp({ sessionId }: ComingUpProps) {
       
       <div 
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide transition-all duration-500 cursor-pointer"
+        className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide transition-all duration-500 cursor-pointer"
         style={{
-          maxHeight: isExpanded ? '400px' : '120px',
+          maxHeight: isExpanded ? '400px' : '100px',
           flexWrap: isExpanded ? 'wrap' : 'nowrap'
         }}
         onClick={(e) => {
@@ -196,24 +196,27 @@ export function ComingUp({ sessionId }: ComingUpProps) {
           return (
             <div
               key={task.task_id}
-              className={`bg-card rounded-2xl p-4 shadow-sm border-2 ${borderColor} transition-colors duration-300 ${
+              className={`bg-card rounded-xl sm:rounded-2xl shadow-sm border-2 ${borderColor} transition-colors duration-300 ${
                 isAnimating ? 'animate-multiply' : ''
               } ${
                 isExpanded 
-                  ? 'w-[180px] h-[180px] flex flex-col justify-center' 
-                  : 'min-w-[200px] h-[100px] shrink-0 flex flex-col justify-center'
+                  ? 'w-[140px] sm:w-[160px] md:w-[180px] h-[140px] sm:h-[160px] md:h-[180px] p-3 sm:p-4 flex flex-col justify-center' 
+                  : 'min-w-[160px] sm:min-w-[180px] md:min-w-[200px] h-[80px] sm:h-[90px] md:h-[100px] p-3 sm:p-4 shrink-0 flex flex-col justify-center'
               }`}
               style={{
                 animationDelay: isAnimating ? `${index * 0.03}s` : '0s'
               }}
             >
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                <Clock className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${iconColor} shrink-0`} />
+                <h4 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-2">
+                  {task.title}
+                </h4>
+              </div>
               <div className="flex items-start gap-2 mb-2">
-                <Clock className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-medium uppercase tracking-wide ${iconColor}`}>
-                    {isOverdue ? 'OVERDUE' : 'COMING UP'}
-                  </p>
-                </div>
+                <p className={`text-xs font-medium uppercase tracking-wide ${iconColor}`}>
+                  {isOverdue ? 'OVERDUE' : 'COMING UP'}
+                </p>
                 {task.is_critical && (
                   <div className={`${borderColor.replace('border-', 'bg-')}/10 px-2 py-0.5 rounded-full`}>
                     <p className={`text-[10px] font-bold ${iconColor}`}>CRITICAL</p>
@@ -246,7 +249,7 @@ export function ComingUp({ sessionId }: ComingUpProps) {
                 }
                 
                 return (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
                     {timeText}
                   </p>
                 )

@@ -217,7 +217,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
   const urgencyColor = getUrgencyColor()
 
   return (
-    <div className="min-h-[60vh] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-[60vh] flex items-center justify-center p-2 sm:p-4 relative overflow-hidden">
       {/* DONE Animation Overlay */}
       {showDone && (
         <div 
@@ -238,7 +238,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       )}
       
       <div 
-        className={`${urgencyColor} rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white ${
+        className={`${urgencyColor} rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-2xl w-full shadow-2xl text-white ${
           slideOut ? 'opacity-0' : 'opacity-100'
         }`}
         style={{
@@ -247,30 +247,30 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
         }}
       >
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
             {nowAction.is_overdue ? (
-              <AlertCircle className="h-8 w-8" />
+              <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8" />
             ) : (
-              <Clock className="h-8 w-8" />
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8" />
             )}
             <div className="flex-1">
               {getCountdownText() && (
-                <p className="text-2xl font-bold">
+                <p className="text-xl sm:text-2xl font-bold">
                   {getCountdownText()}
                 </p>
               )}
             </div>
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3">
             {nowAction.title}
             {nowAction.action_type === 'group' && nowAction.task_count && (
-              <span className="text-2xl opacity-90"> ({nowAction.task_count} tasks)</span>
+              <span className="text-lg sm:text-2xl opacity-90"> ({nowAction.task_count} tasks)</span>
             )}
           </h1>
 
           {nowAction.instruction && nowAction.instruction !== nowAction.title && (
-            <p className="text-lg opacity-90 leading-relaxed">
+            <p className="text-base sm:text-lg opacity-90 leading-relaxed">
               {nowAction.instruction}
             </p>
           )}
@@ -296,7 +296,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
             setShowConfirm(true)
           }}
           disabled={completing || showConfirm}
-          className="w-full bg-white text-foreground py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg flex items-center justify-center disabled:opacity-50"
+          className="w-full bg-white text-foreground py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold hover:bg-white/90 transition-all shadow-lg flex items-center justify-center disabled:opacity-50"
         >
           {getButtonText()}
         </button>
@@ -305,18 +305,19 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       {/* Confirmation Dialog Overlay */}
       {showConfirm && (
         <div className="absolute inset-0 flex items-center justify-center z-40 rounded-3xl">
-          <div className="bg-card rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4 border-2 border-border">
-            <p className="text-foreground text-xl font-semibold mb-6 text-center">
+          <div className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-2xl max-w-md w-full mx-4 border-2 border-border">
+            <p className="text-foreground text-lg sm:text-xl font-semibold mb-4 sm:mb-6 text-center">
               Mark this task as complete?
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3 sm:gap-4">
               <button
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 bg-muted text-foreground py-4 rounded-xl text-lg font-bold hover:bg-muted/80 transition-all"
+                className="flex-1 bg-muted text-foreground py-3 sm:py-4 rounded-lg sm:rounded-xl text-base sm:text-lg font-bold hover:bg-muted/80 transition-all"
               >
                 Cancel
               </button>
               <button
+                className="flex-1 bg-primary text-white py-3 sm:py-4 rounded-lg sm:rounded-xl text-base sm:text-lg font-bold hover:bg-primary/90 transition-all"
                 onClick={async () => {
                   if (completing) return
                   setCompleting(true)
