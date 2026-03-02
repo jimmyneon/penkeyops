@@ -339,68 +339,67 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       )}
       
       <div 
-        className={`${urgencyColor} rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-2xl w-full shadow-2xl text-white ${
+        onClick={() => {
+          if (completing || showConfirm) return
+          
+          // Handle group tasks - open checklist
+          if (nowAction.action_type === 'group' && nowAction.group_id) {
+            onTaskAction(nowAction.task_id, nowAction.group_id, nowAction.action_type)
+            return
+          }
+          
+          // Check if task requires temperature logging
+          const requiresTemperature = nowAction.title.toLowerCase().includes('temperature')
+          
+          if (requiresTemperature) {
+            setShowTempModal(true)
+            return
+          }
+          
+          // Show confirmation dialog
+          setShowConfirm(true)
+        }}
+        className={`${urgencyColor} rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-2xl w-full shadow-2xl text-white cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${
           slideOut ? 'opacity-0' : 'opacity-100'
-        }`}
+        } ${completing || showConfirm ? 'opacity-50 cursor-not-allowed' : ''}`}
         style={{
           animation: shouldWobble ? 'wobble-scale 0.6s ease-out' : 'none',
-          transition: slideOut ? 'opacity 0.3s ease-out' : 'none'
+          transition: slideOut ? 'opacity 0.3s ease-out' : 'transform 0.2s ease-out, opacity 0.3s ease-out'
         }}
       >
-        <div className="mb-6">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            {nowAction.is_overdue ? (
-              <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8" />
-            ) : (
-              <Clock className="h-6 w-6 sm:h-8 sm:w-8" />
-            )}
-            <div className="flex-1">
-              {getCountdownText() && (
-                <p className="text-xl sm:text-2xl font-bold">
-                  {getCountdownText()}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3">
-            {nowAction.title}
-            {nowAction.action_type === 'group' && nowAction.task_count && (
-              <span className="text-lg sm:text-2xl opacity-90"> ({nowAction.task_count} tasks)</span>
-            )}
-          </h1>
-
-          {nowAction.instruction && nowAction.instruction !== nowAction.title && (
-            <p className="text-base sm:text-lg opacity-90 leading-relaxed">
-              {nowAction.instruction}
-            </p>
+        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+          {nowAction.is_overdue ? (
+            <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8" />
+          ) : (
+            <Clock className="h-6 w-6 sm:h-8 sm:w-8" />
           )}
+          <div className="flex-1">
+            {getCountdownText() && (
+              <p className="text-xl sm:text-2xl font-bold">
+                {getCountdownText()}
+              </p>
+            )}
+          </div>
         </div>
 
-        <button
-          onClick={() => {
-            // Handle group tasks - open checklist
-            if (nowAction.action_type === 'group' && nowAction.group_id) {
-              onTaskAction(nowAction.task_id, nowAction.group_id, nowAction.action_type)
-              return
-            }
-            
-            // Check if task requires temperature logging
-            const requiresTemperature = nowAction.title.toLowerCase().includes('temperature')
-            
-            if (requiresTemperature) {
-              setShowTempModal(true)
-              return
-            }
-            
-            // Show confirmation dialog
-            setShowConfirm(true)
-          }}
-          disabled={completing || showConfirm}
-          className="w-full bg-white text-foreground py-4 sm:py-5 md:py-6 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold hover:bg-white/90 transition-all shadow-lg flex items-center justify-center disabled:opacity-50"
-        >
-          {getButtonText()}
-        </button>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3">
+          {nowAction.title}
+          {nowAction.action_type === 'group' && nowAction.task_count && (
+            <span className="text-lg sm:text-2xl opacity-90"> ({nowAction.task_count} tasks)</span>
+          )}
+        </h1>
+
+        {nowAction.instruction && nowAction.instruction !== nowAction.title && (
+          <p className="text-base sm:text-lg opacity-90 leading-relaxed">
+            {nowAction.instruction}
+          </p>
+        )}
+
+        <div className="mt-6 text-center">
+          <p className="text-sm sm:text-base opacity-75">
+            Tap anywhere to {getButtonText().toLowerCase()}
+          </p>
+        </div>
       </div>
 
       {/* Confirmation Dialog Overlay */}
