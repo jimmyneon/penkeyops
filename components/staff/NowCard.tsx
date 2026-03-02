@@ -6,7 +6,7 @@ import { Clock, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { TemperatureModal } from './TemperatureModal'
 
 interface NowAction {
-  action_type: 'task' | 'group'
+  action_type: 'task' | 'group' | 'start_opening'
   task_id: string | null
   group_id: string | null
   title: string
@@ -18,6 +18,11 @@ interface NowAction {
   is_critical: boolean
   task_count: number | null
   never_goes_red?: boolean
+}
+
+interface EndDayStatus {
+  can_end_day: boolean
+  incomplete_count: number
 }
 
 interface NowCardProps {
@@ -36,6 +41,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [showTempModal, setShowTempModal] = useState(false)
   const [shouldWobble, setShouldWobble] = useState(false)
+  const [endDayStatus, setEndDayStatus] = useState<EndDayStatus>({ can_end_day: false, incomplete_count: 0 })
   const supabase = createClient()
 
   useEffect(() => {
@@ -51,6 +57,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       .channel('now_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_results' }, () => {
         loadNowAction()
+        checkEndDayStatus()
       })
       .subscribe()
 
@@ -99,6 +106,30 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     return () => clearInterval(colorUpdateInterval)
   }, [])
 
+  const checkEndDayStatus = async () => {
+    if (!sessionId) return
+
+    const { data, error } = await supabase.rpc('can_end_day', {
+      p_session_id: sessionId
+    })
+
+    if (!error && data !== null) {
+      // Count incomplete required/critical tasks
+      const { count } = await supabase
+        .from('checklist_results')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending')
+        .in('template_item_id', 
+          supabase
+            .from('template_items')
+            .select('id')
+            .or('is_required.eq.true,is_critical.eq.true')
+        )
+
+      setEndDayStatus({ can_end_day: data, incomplete_count: count || 0 })
+    }
+  }
+
   const loadNowAction = async () => {
     if (!sessionId) return
 
@@ -114,9 +145,12 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       return
     }
 
-    console.log('Resolver returned:', data?.[0]?.title || 'No tasks', 'Task ID:', data?.[0]?.task_id)
-    
+    console.log('NOW action data:', data)
     setNowAction(data?.[0] || null)
+    
+    // Also check if we can end the day
+    await checkEndDayStatus()
+    
     setLoading(false)
   }
 
@@ -199,16 +233,83 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     return null
   }
 
-  // No tasks remaining - shift is complete (End of Day task was the last one)
+  // No tasks remaining - check if we can end the day
   if (!nowAction) {
+    if (endDayStatus.can_end_day) {
+      // All required/critical tasks complete - show End Day button
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center p-4">
+          <div 
+            className="bg-green-500 rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white"
+          >
+            <div className="text-center">
+              <div className="text-6xl mb-4">✓</div>
+              <h1 className="text-4xl font-bold mb-3">Ready to End Day</h1>
+              <p className="text-xl opacity-90 mb-6">
+                All required tasks are complete. You can now end your shift.
+              </p>
+              <button
+                onClick={() => onEndShift?.()}
+                className="w-full bg-white text-green-600 py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg"
+              >
+                END DAY
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    } else {
+      // Still have required/critical tasks - show message
+      return (
+        <div className="min-h-[60vh] flex items-center justify-center p-4">
+          <div 
+            className="bg-amber-500 rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white"
+          >
+            <div className="text-center">
+              <div className="text-6xl mb-4">⏳</div>
+              <h1 className="text-4xl font-bold mb-3">Almost There!</h1>
+              <p className="text-xl opacity-90 mb-2">
+                Complete {endDayStatus.incomplete_count} remaining task{endDayStatus.incomplete_count !== 1 ? 's' : ''} to end your shift.
+              </p>
+              <p className="text-sm opacity-75">
+                All required and critical tasks must be completed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  }
+
+  // Handle Start Opening system action
+  if (nowAction.action_type === 'start_opening') {
     return (
-      <div className="h-[60vh] flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="text-8xl mb-6">✨</div>
-          <h1 className="text-4xl font-bold text-foreground mb-4">All Done for Today!</h1>
-          <p className="text-xl text-muted-foreground">
-            Great work! Check back tomorrow for your next shift.
-          </p>
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div 
+          className="bg-primary rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white"
+        >
+          <div className="text-center">
+            <div className="text-6xl mb-4">🌅</div>
+            <h1 className="text-4xl font-bold mb-3">{nowAction.title}</h1>
+            <p className="text-xl opacity-90 mb-6">
+              {nowAction.instruction}
+            </p>
+            <button
+              onClick={async () => {
+                // Mark session as started
+                await supabase
+                  .from('shift_sessions')
+                  .update({ started_at: new Date().toISOString() })
+                  .eq('id', sessionId)
+                
+                // Reload to get first actual task
+                loadNowAction()
+              }}
+              className="w-full bg-white text-primary py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg"
+            >
+              START OPENING
+            </button>
+          </div>
         </div>
       </div>
     )
