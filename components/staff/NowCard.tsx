@@ -109,25 +109,45 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
   const checkEndDayStatus = async () => {
     if (!sessionId) return
 
-    const { data, error } = await supabase.rpc('can_end_day', {
+    const { data: canEnd, error } = await supabase.rpc('can_end_day', {
       p_session_id: sessionId
     })
 
-    if (!error && data !== null) {
-      // Count incomplete required/critical tasks
-      const { count } = await supabase
-        .from('checklist_results')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .in('template_item_id', 
-          supabase
-            .from('template_items')
-            .select('id')
-            .or('is_required.eq.true,is_critical.eq.true')
-        )
-
-      setEndDayStatus({ can_end_day: data, incomplete_count: count || 0 })
+    if (error) {
+      console.error('Error checking can_end_day:', error)
+      return
     }
+
+    // Count incomplete required/critical tasks (excluding End Day tasks)
+    const { data: tasks } = await supabase
+      .from('checklist_results')
+      .select(`
+        id,
+        status,
+        template_items!inner (
+          title,
+          is_required,
+          is_critical
+        ),
+        checklist_instances!inner (
+          shift_session_id
+        )
+      `)
+      .eq('checklist_instances.shift_session_id', sessionId)
+      .eq('status', 'pending')
+
+    // Filter and count tasks that are required or critical, excluding End Day
+    const incompleteTasks = tasks?.filter((task: any) => {
+      const title = task.template_items?.title?.toLowerCase() || ''
+      const isEndDay = title.includes('end') && title.includes('day') || title.includes('confirm') && title.includes('end')
+      const isRequiredOrCritical = task.template_items?.is_required || task.template_items?.is_critical
+      return isRequiredOrCritical && !isEndDay
+    }) || []
+
+    setEndDayStatus({ 
+      can_end_day: canEnd || false, 
+      incomplete_count: incompleteTasks.length 
+    })
   }
 
   const loadNowAction = async () => {
