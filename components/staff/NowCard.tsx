@@ -6,7 +6,7 @@ import { Clock, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { TemperatureModal } from './TemperatureModal'
 
 interface NowAction {
-  action_type: 'task' | 'group' | 'start_opening'
+  action_type: 'task' | 'group' | 'start_opening' | 'end_day'
   task_id: string | null
   group_id: string | null
   title: string
