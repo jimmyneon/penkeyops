@@ -20,11 +20,6 @@ interface NowAction {
   never_goes_red?: boolean
 }
 
-interface EndDayStatus {
-  can_end_day: boolean
-  incomplete_count: number
-}
-
 interface NowCardProps {
   sessionId: string | null
   onEndShift?: () => void
@@ -41,7 +36,6 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [showTempModal, setShowTempModal] = useState(false)
   const [shouldWobble, setShouldWobble] = useState(false)
-  const [endDayStatus, setEndDayStatus] = useState<EndDayStatus>({ can_end_day: false, incomplete_count: 0 })
   const supabase = createClient()
 
   useEffect(() => {
@@ -57,7 +51,6 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
       .channel('now_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_results' }, () => {
         loadNowAction()
-        checkEndDayStatus()
       })
       .subscribe()
 
@@ -106,50 +99,6 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     return () => clearInterval(colorUpdateInterval)
   }, [])
 
-  const checkEndDayStatus = async () => {
-    if (!sessionId) return
-
-    const { data: canEnd, error } = await supabase.rpc('can_end_day', {
-      p_session_id: sessionId
-    })
-
-    if (error) {
-      console.error('Error checking can_end_day:', error)
-      return
-    }
-
-    // Count incomplete required/critical tasks (excluding End Day tasks)
-    const { data: tasks } = await supabase
-      .from('checklist_results')
-      .select(`
-        id,
-        status,
-        template_items!inner (
-          title,
-          is_required,
-          is_critical
-        ),
-        checklist_instances!inner (
-          shift_session_id
-        )
-      `)
-      .eq('checklist_instances.shift_session_id', sessionId)
-      .eq('status', 'pending')
-
-    // Filter and count tasks that are required or critical, excluding End Day
-    const incompleteTasks = tasks?.filter((task: any) => {
-      const title = task.template_items?.title?.toLowerCase() || ''
-      const isEndDay = title.includes('end') && title.includes('day') || title.includes('confirm') && title.includes('end')
-      const isRequiredOrCritical = task.template_items?.is_required || task.template_items?.is_critical
-      return isRequiredOrCritical && !isEndDay
-    }) || []
-
-    setEndDayStatus({ 
-      can_end_day: canEnd || false, 
-      incomplete_count: incompleteTasks.length 
-    })
-  }
-
   const loadNowAction = async () => {
     if (!sessionId) return
 
@@ -167,10 +116,6 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
 
     console.log('NOW action data:', data)
     setNowAction(data?.[0] || null)
-    
-    // Also check if we can end the day
-    await checkEndDayStatus()
-    
     setLoading(false)
   }
 
@@ -253,52 +198,19 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     return null
   }
 
-  // No tasks remaining - check if we can end the day
+  // No tasks remaining - all done
   if (!nowAction) {
-    if (endDayStatus.can_end_day) {
-      // All required/critical tasks complete - show End Day button
-      return (
-        <div className="min-h-[60vh] flex items-center justify-center p-4">
-          <div 
-            className="bg-green-500 rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white"
-          >
-            <div className="text-center">
-              <div className="text-6xl mb-4">✓</div>
-              <h1 className="text-4xl font-bold mb-3">Ready to End Day</h1>
-              <p className="text-xl opacity-90 mb-6">
-                All required tasks are complete. You can now end your shift.
-              </p>
-              <button
-                onClick={() => onEndShift?.()}
-                className="w-full bg-white text-green-600 py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg"
-              >
-                END DAY
-              </button>
-            </div>
-          </div>
+    return (
+      <div className="h-[60vh] flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="text-8xl mb-6">✨</div>
+          <h1 className="text-4xl font-bold text-foreground mb-4">All Done!</h1>
+          <p className="text-xl text-muted-foreground">
+            Great work today.
+          </p>
         </div>
-      )
-    } else {
-      // Still have required/critical tasks - show message
-      return (
-        <div className="min-h-[60vh] flex items-center justify-center p-4">
-          <div 
-            className="bg-amber-500 rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white"
-          >
-            <div className="text-center">
-              <div className="text-6xl mb-4">⏳</div>
-              <h1 className="text-4xl font-bold mb-3">Almost There!</h1>
-              <p className="text-xl opacity-90 mb-2">
-                Complete {endDayStatus.incomplete_count} remaining task{endDayStatus.incomplete_count !== 1 ? 's' : ''} to end your shift.
-              </p>
-              <p className="text-sm opacity-75">
-                All required and critical tasks must be completed.
-              </p>
-            </div>
-          </div>
-        </div>
-      )
-    }
+      </div>
+    )
   }
 
   // Handle Start Opening system action
