@@ -15,12 +15,16 @@ export function useShiftSession(siteId: string | null) {
       return
     }
 
-    // First try to get an incomplete session
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // First try to get TODAY'S incomplete session
     const { data: activeData, error: activeError } = await supabase
       .from('shift_sessions')
       .select('*')
       .eq('site_id', siteId)
       .eq('is_complete', false)
+      .gte('started_at', today.toISOString())
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -31,9 +35,6 @@ export function useShiftSession(siteId: string | null) {
 
     // If no active session, get the most recent completed session (for today)
     if (!activeData) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
       const { data: completedData, error: completedError } = await supabase
         .from('shift_sessions')
         .select('*')
