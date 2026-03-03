@@ -7,6 +7,7 @@ DECLARE
   v_incomplete_required INTEGER;
   v_incomplete_critical INTEGER;
   v_can_end BOOLEAN;
+  v_task RECORD;
 BEGIN
   -- Check what can_end_day returns
   SELECT can_end_day(v_session_id) INTO v_can_end;
