@@ -379,12 +379,12 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
           // Show confirmation dialog
           setShowConfirm(true)
         }}
-        className={`${urgencyColor} rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-2xl w-full shadow-2xl text-white cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${
+        className={`${urgencyColor} rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 max-w-2xl w-full shadow-2xl text-white cursor-pointer transition-opacity ${
           slideOut ? 'opacity-0' : 'opacity-100'
         } ${completing || showConfirm ? 'opacity-50 cursor-not-allowed' : ''}`}
         style={{
           animation: shouldWobble ? 'wobble-scale 0.6s ease-out' : 'none',
-          transition: slideOut ? 'opacity 0.3s ease-out' : 'transform 0.2s ease-out, opacity 0.3s ease-out'
+          transition: 'opacity 0.3s ease-out'
         }}
       >
         <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
@@ -415,10 +415,10 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
           </p>
         )}
 
-        <div className="mt-6 text-center">
-          <p className="text-sm sm:text-base opacity-75">
-            Tap anywhere to {getButtonText().toLowerCase()}
-          </p>
+        <div className="mt-6">
+          <div className="w-full bg-white text-foreground py-3 sm:py-4 rounded-xl text-base sm:text-lg font-bold text-center">
+            Tap anywhere
+          </div>
         </div>
       </div>
 
