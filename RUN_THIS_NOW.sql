@@ -48,10 +48,42 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- STEP 2: Delete today's session (start fresh)
+-- STEP 2: Show what Start/End Day tasks exist
 -- ============================================
 
--- Delete checklist results
+-- Find all Start Day / Start Shift tasks
+SELECT 
+  'START TASKS' as type,
+  t.name as template_name,
+  t.template_type,
+  ti.title,
+  ti.id
+FROM template_items ti
+JOIN templates t ON t.id = ti.template_id
+WHERE ti.title ILIKE '%start%shift%'
+   OR ti.title ILIKE '%start%day%'
+   OR ti.title ILIKE '%confirm%start%'
+ORDER BY t.template_type, ti.title;
+
+-- Find all End Day tasks
+SELECT 
+  'END TASKS' as type,
+  t.name as template_name,
+  t.template_type,
+  ti.title,
+  ti.id
+FROM template_items ti
+JOIN templates t ON t.id = ti.template_id
+WHERE ti.title ILIKE '%end%day%'
+   OR ti.title ILIKE '%confirm%end%'
+   OR ti.title ILIKE '%end%shift%'
+ORDER BY t.template_type, ti.title;
+
+-- ============================================
+-- STEP 3: Delete today's session (this will cascade delete checklist_results)
+-- ============================================
+
+-- Delete checklist results first
 DELETE FROM checklist_results
 WHERE checklist_instance_id IN (
   SELECT ci.id
@@ -73,40 +105,14 @@ DELETE FROM shift_sessions
 WHERE started_at::DATE = CURRENT_DATE;
 
 -- ============================================
--- STEP 3: Remove duplicate Start/End Day tasks from templates
+-- STEP 4: NOW we can safely delete template_items
 -- ============================================
-
--- Find all Start Day / Start Shift tasks
-SELECT 
-  t.name as template_name,
-  t.template_type,
-  ti.title,
-  ti.id
-FROM template_items ti
-JOIN templates t ON t.id = ti.template_id
-WHERE ti.title ILIKE '%start%shift%'
-   OR ti.title ILIKE '%start%day%'
-   OR ti.title ILIKE '%confirm%start%'
-ORDER BY t.template_type, ti.title;
 
 -- Delete Start Day/Shift tasks (these are system actions, not tasks)
 DELETE FROM template_items
 WHERE title ILIKE '%start%shift%'
    OR title ILIKE '%start%day%'
    OR title ILIKE '%confirm%start%';
-
--- Find all End Day tasks
-SELECT 
-  t.name as template_name,
-  t.template_type,
-  ti.title,
-  ti.id
-FROM template_items ti
-JOIN templates t ON t.id = ti.template_id
-WHERE ti.title ILIKE '%end%day%'
-   OR ti.title ILIKE '%confirm%end%'
-   OR ti.title ILIKE '%end%shift%'
-ORDER BY t.template_type, ti.title;
 
 -- Keep only ONE End Day task (the one with highest sort_order)
 -- Delete all others
