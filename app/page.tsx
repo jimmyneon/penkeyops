@@ -305,29 +305,6 @@ export default function Home() {
             onClose={() => setShowEndOfDay(false)}
             onConfirmEnd={async () => {
               try {
-                // Mark End of Day task as complete
-                const { data: endOfDayTask } = await supabase
-                  .from('checklist_results')
-                  .select('id')
-                  .eq('checklist_instance_id', (await supabase
-                    .from('checklist_instances')
-                    .select('id, template_items!inner(title)')
-                    .eq('shift_session_id', activeSession.id)
-                    .eq('template_items.title', 'End of Day')
-                    .single()
-                  ).data?.id || '')
-                  .single()
-
-                if (endOfDayTask) {
-                  await supabase
-                    .from('checklist_results')
-                    .update({
-                      status: 'completed',
-                      completed_at: new Date().toISOString()
-                    })
-                    .eq('id', endOfDayTask.id)
-                }
-
                 // Mark shift as complete
                 await supabase
                   .from('shift_sessions')
@@ -339,7 +316,8 @@ export default function Home() {
                   .eq('id', activeSession.id)
                 
                 setShowEndOfDay(false)
-                refreshSession()
+                // Don't refresh - let the session stay complete
+                // User will see "Shift Complete" message
               } catch (error) {
                 console.error('Error completing shift:', error)
               }
