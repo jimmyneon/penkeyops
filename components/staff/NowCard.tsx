@@ -416,7 +416,7 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
         )}
 
         <div className="mt-6">
-          <div className="w-full bg-white text-foreground py-3 sm:py-4 rounded-xl text-base sm:text-lg font-bold text-center">
+          <div className="w-full bg-white text-foreground py-4 sm:py-6 rounded-xl sm:rounded-2xl text-xl sm:text-2xl md:text-3xl font-bold text-center shadow-lg">
             Tap anywhere
           </div>
         </div>
