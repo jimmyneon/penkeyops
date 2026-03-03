@@ -261,7 +261,21 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
               {nowAction.instruction}
             </p>
             <button
-              onClick={() => onEndShift?.()}
+              onClick={async () => {
+                // Mark session complete directly
+                const { error } = await supabase
+                  .from('shift_sessions')
+                  .update({
+                    completed_at: new Date().toISOString(),
+                    is_complete: true,
+                  })
+                  .eq('id', sessionId)
+                
+                if (!error) {
+                  // Session marked complete - UI will show "All Done" message
+                  window.location.reload()
+                }
+              }}
               className="w-full bg-white text-green-600 py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg"
             >
               END DAY
