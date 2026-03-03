@@ -247,6 +247,31 @@ export function NowCard({ sessionId, onEndShift, onTaskAction }: NowCardProps) {
     )
   }
 
+  // Handle End Day system action
+  if (nowAction.action_type === 'end_day') {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div 
+          className="bg-green-500 rounded-3xl p-8 max-w-2xl w-full shadow-2xl text-white"
+        >
+          <div className="text-center">
+            <div className="text-6xl mb-4">✓</div>
+            <h1 className="text-4xl font-bold mb-3">{nowAction.title}</h1>
+            <p className="text-xl opacity-90 mb-6">
+              {nowAction.instruction}
+            </p>
+            <button
+              onClick={() => onEndShift?.()}
+              className="w-full bg-white text-green-600 py-6 rounded-2xl text-2xl font-bold hover:bg-white/90 transition-all shadow-lg"
+            >
+              END DAY
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const urgencyColor = getUrgencyColor()
 
   return (
