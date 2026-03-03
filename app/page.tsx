@@ -50,14 +50,13 @@ export default function Home() {
         return
       }
       
-      const shiftType = getShiftType()
       try {
         const { data: session, error } = await supabase
           .from('shift_sessions')
           .insert({
             site_id: profile.site_id,
             started_by: user.id,
-            shift_type: shiftType,
+            shift_type: 'daily',  // Single daily shift type
           })
           .select()
           .single()
@@ -65,13 +64,12 @@ export default function Home() {
         if (error) throw error
 
         if (session) {
-          // Load ALL active templates (Opening + Mid + Closing)
-          // shift_type is for internal tracking only, not filtering
+          // Load active daily template
           const { data: templates } = await supabase
             .from('templates')
             .select('id')
             .eq('is_active', true)
-            .or(`site_id.eq.${profile.site_id},site_id.is.null`)
+            .eq('site_id', profile.site_id)
 
           if (templates && templates.length > 0) {
             for (const template of templates) {
@@ -351,17 +349,4 @@ export default function Home() {
       </main>
     </div>
   )
-
-  function getShiftType(): 'opening' | 'mid' | 'closing' {
-    const hour = new Date().getHours()
-    // Business hours: 8:30am - 5pm
-    // Opening: 8am - 10am
-    // Operational (mid): 10am - 2pm
-    // Closing: 2pm - 5pm
-    if (hour >= 8 && hour < 10) return 'opening'
-    if (hour >= 10 && hour < 14) return 'mid'
-    if (hour >= 14 && hour < 17) return 'closing'
-    // Outside business hours - default to closing
-    return 'closing'
-  }
 }
