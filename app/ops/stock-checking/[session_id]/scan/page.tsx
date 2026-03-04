@@ -4,6 +4,8 @@ import { useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Camera, RefreshCw } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function ScanPage() {
   const router = useRouter()
   const params = useParams()

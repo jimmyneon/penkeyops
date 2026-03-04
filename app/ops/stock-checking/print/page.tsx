@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Download } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default function PrintTemplatePage() {
   const router = useRouter()
   const searchParams = useSearchParams()

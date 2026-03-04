@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Moon, Sun, ChefHat, ShoppingCart, AlertTriangle, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
+export const dynamic = 'force-dynamic'
+
 type Tab = 'tonight' | 'morning' | 'prep' | 'orders' | 'bulk'
 
 export default function ResultsPage() {

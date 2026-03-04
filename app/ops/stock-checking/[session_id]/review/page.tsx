@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, AlertTriangle, Edit2, Plus, Minus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
+export const dynamic = 'force-dynamic'
+
 interface StockCount {
   id: string
   item_id: string

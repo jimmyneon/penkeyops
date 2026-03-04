@@ -6,6 +6,8 @@ import { useUser } from '@/hooks/useUser'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, Download, Camera, CheckCircle, RefreshCw } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 type SessionStatus = 'created' | 'printed' | 'scanned' | 'applied' | 'archived'
 
 interface StockSession {
