@@ -11,6 +11,7 @@ const supabase = createClient(
 export async function POST(request: NextRequest) {
   try {
     const { session_id } = await request.json()
+    console.log('PDF generation requested for session:', session_id)
 
     if (!session_id) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 })
@@ -23,7 +24,19 @@ export async function POST(request: NextRequest) {
       .eq('active', true)
       .order('sort_order', { ascending: true })
 
-    if (error) throw error
+    console.log('Items query result:', { itemCount: items?.length, error })
+
+    if (error) {
+      console.error('Database error fetching items:', error)
+      throw error
+    }
+
+    if (!items || items.length === 0) {
+      console.log('No items found - returning error')
+      return NextResponse.json({ 
+        error: 'No items found. Please add items in the admin page first.' 
+      }, { status: 400 })
+    }
 
     // Group items by location
     const freezerItems = items?.filter(i => i.is_freezer_item && i.location === 'freezer') || []
@@ -134,6 +147,11 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error generating PDF:', error)
-    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 })
+    console.error('Error details:', error instanceof Error ? error.message : String(error))
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    return NextResponse.json({ 
+      error: 'Failed to generate PDF', 
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 })
   }
 }
