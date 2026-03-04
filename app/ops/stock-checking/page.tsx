@@ -53,15 +53,25 @@ export default function StockCheckingPage() {
   }
 
   useEffect(() => {
+    console.log('useEffect triggered, profile:', profile)
     if (profile) {
       loadTodaySession()
     }
   }, [profile])
 
   const createNewSession = async () => {
-    if (!user || !profile?.site_id) return
+    console.log('createNewSession called')
+    console.log('User:', user)
+    console.log('Profile:', profile)
+    
+    if (!user || !profile?.site_id) {
+      console.log('Missing user or profile.site_id, returning early')
+      alert('User profile not loaded. Please refresh the page.')
+      return
+    }
 
     const sessionId = new Date().toISOString().split('T')[0] + '-PM'
+    console.log('Creating session with ID:', sessionId)
     
     const { data, error } = await supabase
       .from('stock_sessions')
@@ -76,9 +86,11 @@ export default function StockCheckingPage() {
 
     if (error) {
       console.error('Error creating session:', error)
+      alert(`Error creating session: ${error.message}`)
       return
     }
 
+    console.log('Session created:', data)
     setSession(data)
   }
 
@@ -174,8 +186,10 @@ export default function StockCheckingPage() {
     )
   }
 
+  console.log('Rendering page, session:', session, 'user:', user, 'profile:', profile)
   const buttonConfig = getButtonConfig()
   const ButtonIcon = buttonConfig.icon
+  console.log('Button config:', buttonConfig)
 
   return (
     <div className="min-h-screen bg-background">
