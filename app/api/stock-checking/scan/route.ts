@@ -7,9 +7,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+const getOpenAIClient = () => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is not set')
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 const SYSTEM_PROMPT = `You are reading a printed stock-check form for 'Pen-Key Déli-caf'.
 Each row contains an item name, an ITEM ID in square brackets like [FRZ_HOG_PORK_PORT], and a handwritten integer in a boxed field labeled 'Count' or 'Freezer'/'Service'.
@@ -48,6 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call OpenAI Vision API
+    const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
