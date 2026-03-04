@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import PDFDocument from 'pdfkit'
 import QRCode from 'qrcode'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +15,6 @@ export async function POST(request: NextRequest) {
     if (!session_id) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 })
     }
-
-    const supabase = await createClient()
 
     // Get active items sorted by sort_order
     const { data: items, error } = await supabase
