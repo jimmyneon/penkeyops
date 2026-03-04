@@ -70,7 +70,25 @@ export default function StockCheckingPage() {
       return
     }
 
-    const sessionId = new Date().toISOString().split('T')[0] + '-PM'
+    // Check for existing non-archived session today
+    const today = new Date().toISOString().split('T')[0]
+    const { data: existingSession } = await supabase
+      .from('stock_sessions')
+      .select('*')
+      .eq('site_id', profile.site_id)
+      .neq('status', 'archived')
+      .gte('created_at', `${today}T00:00:00`)
+      .maybeSingle()
+
+    if (existingSession) {
+      console.log('Found existing session:', existingSession)
+      setSession(existingSession)
+      return
+    }
+
+    // Create unique session ID with timestamp
+    const now = new Date()
+    const sessionId = `${today}-${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`
     console.log('Creating session with ID:', sessionId)
     
     const { data, error } = await supabase
