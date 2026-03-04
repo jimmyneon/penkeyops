@@ -1,8 +1,15 @@
 -- Stock Checking System Migration
 -- Creates tables for inventory management with two-bucket system (freezer + service)
 
+-- Drop existing tables if they exist (in reverse dependency order)
+DROP TABLE IF EXISTS stock_movements CASCADE;
+DROP TABLE IF EXISTS stock_current CASCADE;
+DROP TABLE IF EXISTS stock_counts CASCADE;
+DROP TABLE IF EXISTS stock_sessions CASCADE;
+DROP TABLE IF EXISTS items CASCADE;
+
 -- Items table: master list of stock items
-CREATE TABLE IF NOT EXISTS items (
+CREATE TABLE items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   item_id TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
@@ -26,8 +33,11 @@ CREATE TABLE IF NOT EXISTS items (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create index on item_id for foreign key references
+CREATE UNIQUE INDEX idx_items_item_id ON items(item_id);
+
 -- Stock sessions: tracks each stock check session
-CREATE TABLE IF NOT EXISTS stock_sessions (
+CREATE TABLE stock_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id TEXT UNIQUE NOT NULL,
   site_id UUID REFERENCES sites(id),
@@ -39,10 +49,10 @@ CREATE TABLE IF NOT EXISTS stock_sessions (
 );
 
 -- Stock counts: parsed counts from each session
-CREATE TABLE IF NOT EXISTS stock_counts (
+CREATE TABLE stock_counts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id TEXT NOT NULL REFERENCES stock_sessions(session_id) ON DELETE CASCADE,
-  item_id TEXT NOT NULL REFERENCES items(item_id),
+  item_id TEXT NOT NULL REFERENCES items(item_id) ON DELETE CASCADE,
   freezer_count INTEGER,
   service_count INTEGER,
   source TEXT DEFAULT 'scan' CHECK (source IN ('scan', 'manual')),
@@ -52,15 +62,15 @@ CREATE TABLE IF NOT EXISTS stock_counts (
 );
 
 -- Stock current: source of truth for current stock levels
-CREATE TABLE IF NOT EXISTS stock_current (
-  item_id TEXT PRIMARY KEY REFERENCES items(item_id),
+CREATE TABLE stock_current (
+  item_id TEXT PRIMARY KEY REFERENCES items(item_id) ON DELETE CASCADE,
   freezer_count INTEGER DEFAULT 0,
   service_count INTEGER DEFAULT 0,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Stock movements: logs transfers between buckets
-CREATE TABLE IF NOT EXISTS stock_movements (
+CREATE TABLE stock_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_by UUID REFERENCES auth.users(id),
