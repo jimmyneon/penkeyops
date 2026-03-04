@@ -24,10 +24,6 @@ export default function StockCheckingPage() {
   const [session, setSession] = useState<StockSession | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadTodaySession()
-  }, [])
-
   const loadTodaySession = async () => {
     if (!profile?.site_id) return
 
@@ -49,6 +45,10 @@ export default function StockCheckingPage() {
     setSession(data)
     setLoading(false)
   }
+
+  useEffect(() => {
+    loadTodaySession()
+  }, [loadTodaySession])
 
   const createNewSession = async () => {
     if (!user || !profile?.site_id) return
