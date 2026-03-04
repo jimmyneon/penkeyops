@@ -39,22 +39,42 @@ export async function POST(request: NextRequest) {
     }
 
     // Group items by location
+    console.log('Grouping items by location...')
     const freezerItems = items?.filter(i => i.is_freezer_item && i.location === 'freezer') || []
     const serviceItems = items?.filter(i => i.location === 'fridge') || []
     const dryItems = items?.filter(i => i.location === 'dry') || []
+    console.log('Item groups:', { freezer: freezerItems.length, service: serviceItems.length, dry: dryItems.length })
 
     // Generate QR code
+    console.log('Generating QR code...')
     const scanUrl = `${process.env.NEXT_PUBLIC_APP_URL}/ops/stock-checking/${session_id}/scan`
+    console.log('Scan URL:', scanUrl)
     const qrDataUrl = await QRCode.toDataURL(scanUrl, { width: 150 })
+    console.log('QR code generated successfully')
 
     // Create PDF
-    const doc = new PDFDocument({ size: 'A4', margin: 40 })
+    console.log('Creating PDF document...')
+    let doc
+    try {
+      doc = new PDFDocument({ size: 'A4', margin: 40 })
+      console.log('PDFDocument created successfully')
+    } catch (err) {
+      console.error('Error creating PDFDocument:', err)
+      throw new Error(`Failed to create PDF document: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    
     const chunks: Buffer[] = []
-
     doc.on('data', (chunk) => chunks.push(chunk))
+    console.log('PDF data handler attached')
 
     // Header
-    doc.fontSize(24).font('Helvetica-Bold').text('Pen-Key Déli-caf', { align: 'center' })
+    console.log('Adding PDF header...')
+    try {
+      doc.fontSize(24).font('Helvetica-Bold').text('Pen-Key Déli-caf', { align: 'center' })
+    } catch (err) {
+      console.error('Error adding header:', err)
+      throw new Error(`Failed to add PDF header: ${err instanceof Error ? err.message : String(err)}`)
+    }
     doc.fontSize(16).font('Helvetica').text('Daily Stock Check', { align: 'center' })
     doc.moveDown(0.5)
     doc.fontSize(10).text(`Session ID: ${session_id}`, { align: 'center' })
