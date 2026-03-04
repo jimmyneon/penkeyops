@@ -163,6 +163,17 @@ export default function Home() {
 
                 <button
                   onClick={() => {
+                    router.push('/ops/stock-checking')
+                    setShowMenu(false)
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left"
+                >
+                  <Package className="h-5 w-5 text-primary" />
+                  <span className="font-medium">Stock Checking</span>
+                </button>
+
+                <button
+                  onClick={() => {
                     router.push('/completed')
                     setShowMenu(false)
                   }}
