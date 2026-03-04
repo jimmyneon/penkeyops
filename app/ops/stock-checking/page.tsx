@@ -27,7 +27,10 @@ export default function StockCheckingPage() {
   const [loading, setLoading] = useState(true)
 
   const loadTodaySession = async () => {
-    if (!profile?.site_id) return
+    if (!profile?.site_id) {
+      setLoading(false)
+      return
+    }
 
     const today = new Date().toISOString().split('T')[0]
     
@@ -50,8 +53,10 @@ export default function StockCheckingPage() {
   }
 
   useEffect(() => {
-    loadTodaySession()
-  }, [loadTodaySession])
+    if (profile) {
+      loadTodaySession()
+    }
+  }, [profile])
 
   const createNewSession = async () => {
     if (!user || !profile?.site_id) return
