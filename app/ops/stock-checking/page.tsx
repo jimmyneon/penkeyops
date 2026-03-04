@@ -35,6 +35,7 @@ export default function StockCheckingPage() {
       .from('stock_sessions')
       .select('*')
       .eq('site_id', profile.site_id)
+      .neq('status', 'archived')
       .gte('created_at', `${today}T00:00:00`)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -94,12 +95,15 @@ export default function StockCheckingPage() {
     
     if (!confirm('Archive current session and start fresh?')) return
 
-    await supabase
+    const { error } = await supabase
       .from('stock_sessions')
       .update({ status: 'archived' })
       .eq('id', session.id)
 
-    await createNewSession()
+    if (!error) {
+      setSession(null)
+      await loadTodaySession()
+    }
   }
 
   const getButtonConfig = () => {
@@ -115,8 +119,11 @@ export default function StockCheckingPage() {
     switch (session.status) {
       case 'created':
         return {
-          text: 'Download Template',
-          action: () => router.push(`/ops/stock-checking/print?session_id=${session.session_id}`),
+          text: 'Generate & Download PDF',
+          action: async () => {
+            window.open(`/ops/stock-checking/print?session_id=${session.session_id}`, '_blank')
+            await markPrinted()
+          },
           icon: Download,
           color: 'bg-primary'
         }
