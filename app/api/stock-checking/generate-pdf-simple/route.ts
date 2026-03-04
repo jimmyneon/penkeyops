@@ -49,80 +49,83 @@ export async function POST(request: NextRequest) {
 
     // Create PDF with jsPDF (works in serverless)
     const doc = new jsPDF()
-    let yPos = 20
+    let yPos = 10
 
-    // Header
-    doc.setFontSize(20)
-    doc.text('Pen-Key Déli-caf', 105, yPos, { align: 'center' })
-    yPos += 10
-    doc.setFontSize(14)
-    doc.text('Daily Stock Check', 105, yPos, { align: 'center' })
-    yPos += 8
-    doc.setFontSize(10)
-    doc.text(`Session ID: ${session_id}`, 105, yPos, { align: 'center' })
-    yPos += 10
+    // Header - compact
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Penki Ops - Daily Stock Check', 10, yPos)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.text(`Session: ${session_id}`, 10, yPos + 4)
+    
+    // QR Code - small, top right corner
+    doc.addImage(qrDataUrl, 'PNG', 175, 5, 25, 25)
+    
+    yPos += 12
 
-    // QR Code
-    doc.addImage(qrDataUrl, 'PNG', 80, yPos, 50, 50)
-    yPos += 60
-
-    // Helper to draw item row
+    // Helper to draw item row - compact
     const drawItemRow = (item: typeof items[0], showFreezer: boolean) => {
-      if (yPos > 270) {
+      if (yPos > 280) {
         doc.addPage()
-        yPos = 20
+        yPos = 10
       }
 
-      doc.setFontSize(10)
-      doc.text(item.name, 20, yPos)
       doc.setFontSize(8)
-      doc.setTextColor(128, 128, 128)
-      doc.text(`[${item.item_id}]`, 20, yPos + 4)
+      doc.text(item.name, 10, yPos)
+      doc.setFontSize(6)
+      doc.setTextColor(100, 100, 100)
+      doc.text(`[${item.item_id}]`, 10, yPos + 3)
       doc.setTextColor(0, 0, 0)
 
       if (showFreezer) {
-        doc.rect(120, yPos - 4, 30, 8)
-        doc.text('Freezer:', 95, yPos)
-        doc.rect(160, yPos - 4, 30, 8)
-        doc.text('Service:', 155, yPos + 10)
+        // Freezer box
+        doc.rect(110, yPos - 2, 20, 5)
+        doc.setFontSize(6)
+        doc.text('F:', 95, yPos)
+        // Service box
+        doc.rect(135, yPos - 2, 20, 5)
+        doc.text('S:', 130, yPos)
       } else {
-        doc.rect(140, yPos - 4, 40, 8)
-        doc.text('Count:', 120, yPos)
+        // Single count box
+        doc.rect(120, yPos - 2, 25, 5)
+        doc.setFontSize(6)
+        doc.text('Qty:', 105, yPos)
       }
 
-      yPos += showFreezer ? 16 : 12
+      yPos += 7
     }
 
     // Freezer section
     if (freezerItems.length > 0) {
-      doc.setFontSize(12)
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.text('FREEZER (Bulk Stock)', 20, yPos)
-      yPos += 8
+      doc.text('FREEZER', 10, yPos)
+      yPos += 5
       doc.setFont('helvetica', 'normal')
       
       freezerItems.forEach(item => drawItemRow(item, true))
-      yPos += 5
+      yPos += 2
     }
 
     // Service/Fridge section
     if (serviceItems.length > 0) {
-      doc.setFontSize(12)
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.text('SERVICE / FRIDGE', 20, yPos)
-      yPos += 8
+      doc.text('SERVICE / FRIDGE', 10, yPos)
+      yPos += 5
       doc.setFont('helvetica', 'normal')
       
       serviceItems.forEach(item => drawItemRow(item, false))
-      yPos += 5
+      yPos += 2
     }
 
     // Dry section
     if (dryItems.length > 0) {
-      doc.setFontSize(12)
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.text('DRY / RETAIL', 20, yPos)
-      yPos += 8
+      doc.text('DRY / RETAIL', 10, yPos)
+      yPos += 5
       doc.setFont('helvetica', 'normal')
       
       dryItems.forEach(item => drawItemRow(item, false))
