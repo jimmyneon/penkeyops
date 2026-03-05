@@ -17,58 +17,65 @@ export default function ScanPage() {
   const [capturing, setCapturing] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   const startCamera = async () => {
     console.log('startCamera called')
     try {
       console.log('Requesting camera access...')
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
       })
       
-      console.log('Camera stream obtained:', stream)
+      console.log('Camera stream obtained:', mediaStream)
       
-      if (videoRef.current) {
-        console.log('Setting video srcObject')
-        videoRef.current.srcObject = stream
-        
-        // Set camera active immediately
-        console.log('Setting cameraActive to true')
-        setCameraActive(true)
-        setError(null)
-        
-        // Wait for video metadata to load, then play
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, playing...')
-          videoRef.current?.play().catch(err => {
-            console.error('Video play error:', err)
-            setError('Failed to start video playback')
-          })
-        }
-      } else {
-        console.error('videoRef.current is null')
-      }
+      // Store stream and set camera active - this will trigger render with video element
+      setStream(mediaStream)
+      setCameraActive(true)
+      setError(null)
+      console.log('Set stream and cameraActive to true')
     } catch (err) {
       console.error('Camera error:', err)
       setError('Camera access denied. Please enable camera permissions.')
     }
   }
 
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach(track => track.stop())
-      videoRef.current.srcObject = null
-      setCameraActive(false)
+  // Attach stream to video element when it becomes available
+  useEffect(() => {
+    if (stream && videoRef.current && cameraActive) {
+      console.log('Attaching stream to video element')
+      videoRef.current.srcObject = stream
+      
+      videoRef.current.onloadedmetadata = () => {
+        console.log('Video metadata loaded, playing...')
+        videoRef.current?.play().catch(err => {
+          console.error('Video play error:', err)
+          setError('Failed to start video playback')
+        })
+      }
     }
+  }, [stream, cameraActive])
+
+  const stopCamera = () => {
+    if (stream) {
+      console.log('Stopping camera stream')
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    setCameraActive(false)
   }
 
   // Cleanup camera on unmount
   useEffect(() => {
     return () => {
-      stopCamera()
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+      }
     }
-  }, [])
+  }, [stream])
 
   const captureImage = async () => {
     if (!videoRef.current || !canvasRef.current) return
