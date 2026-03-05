@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Camera, RefreshCw } from 'lucide-react'
 
@@ -26,6 +26,13 @@ export default function ScanPage() {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        // Wait for video metadata to load, then play
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(err => {
+            console.error('Video play error:', err)
+            setError('Failed to start video playback')
+          })
+        }
         setCameraActive(true)
         setError(null)
       }
@@ -39,9 +46,17 @@ export default function ScanPage() {
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream
       stream.getTracks().forEach(track => track.stop())
+      videoRef.current.srcObject = null
       setCameraActive(false)
     }
   }
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera()
+    }
+  }, [])
 
   const captureImage = async () => {
     if (!videoRef.current || !canvasRef.current) return
