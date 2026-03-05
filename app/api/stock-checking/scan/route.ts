@@ -52,7 +52,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Call OpenAI Vision API
+    // Get items in same order as PDF (sorted by sort_order)
+    const { data: items } = await supabase
+      .from('items')
+      .select('item_id, name, location')
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+
+    if (!items || items.length === 0) {
+      return NextResponse.json({
+        error: 'No active items found in database'
+      }, { status: 400 })
+    }
+
+    // Build item list for prompt
+    const itemList = items.map((item, index) => 
+      `${index + 1}. ${item.name} (${item.location})`
+    ).join('\n')
+
+    // Call OpenAI Vision API with full item context
     const openai = getOpenAIClient()
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -66,7 +84,12 @@ export async function POST(request: NextRequest) {
           content: [
             {
               type: 'text',
-              text: `Parse this stock check sheet for session ${session_id}. Return strict JSON only.`
+              text: `Parse this stock check sheet for session ${session_id}.
+
+EXPECTED ITEMS (in order):
+${itemList}
+
+Match the handwritten counts to these item numbers. Return strict JSON only.`
             },
             {
               type: 'image_url',
@@ -89,41 +112,36 @@ export async function POST(request: NextRequest) {
     // Parse JSON response
     const parsed = JSON.parse(content)
 
-    // Validate item_ids exist in database
-    const { data: validItems } = await supabase
-      .from('items')
-      .select('item_id')
-      .eq('active', true)
+    // Create mapping: item number (1,2,3...) -> item_id
+    const numberToItemId: { [key: string]: string } = {}
+    items.forEach((item, index) => {
+      numberToItemId[(index + 1).toString()] = item.item_id
+    })
 
-    const validItemIds = new Set(validItems?.map(i => i.item_id) || [])
-
-    // Check for invalid item_ids
-    const allItemIds = [
-      ...Object.keys(parsed.counts.FREEZER || {}),
-      ...Object.keys(parsed.counts.SERVICE || {})
-    ]
-
-    const invalidIds = allItemIds.filter(id => !validItemIds.has(id))
-    if (invalidIds.length > 0) {
-      return NextResponse.json({
-        error: `Invalid item IDs found: ${invalidIds.join(', ')}. Please rescan.`
-      }, { status: 400 })
-    }
-
-    // Store counts in database
+    // Map item numbers to item_ids
     const countsToInsert = []
 
-    for (const [itemId, count] of Object.entries(parsed.counts.FREEZER || {})) {
+    for (const [itemNumber, count] of Object.entries(parsed.counts.FREEZER || {})) {
+      const itemId = numberToItemId[itemNumber]
+      if (!itemId) {
+        console.warn(`Unknown item number: ${itemNumber}`)
+        continue
+      }
       countsToInsert.push({
         session_id,
         item_id: itemId,
         freezer_count: count as number,
         source: 'scan',
-        confidence: parsed.row_confidence.FREEZER?.[itemId] || 1.0
+        confidence: parsed.row_confidence.FREEZER?.[itemNumber] || 1.0
       })
     }
 
-    for (const [itemId, count] of Object.entries(parsed.counts.SERVICE || {})) {
+    for (const [itemNumber, count] of Object.entries(parsed.counts.SERVICE || {})) {
+      const itemId = numberToItemId[itemNumber]
+      if (!itemId) {
+        console.warn(`Unknown item number: ${itemNumber}`)
+        continue
+      }
       const existing = countsToInsert.find(c => c.item_id === itemId)
       if (existing) {
         existing.service_count = count as number
@@ -133,7 +151,7 @@ export async function POST(request: NextRequest) {
           item_id: itemId,
           service_count: count as number,
           source: 'scan',
-          confidence: parsed.row_confidence.SERVICE?.[itemId] || 1.0
+          confidence: parsed.row_confidence.SERVICE?.[itemNumber] || 1.0
         })
       }
     }
