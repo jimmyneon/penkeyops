@@ -16,8 +16,8 @@ const getOpenAIClient = () => {
   })
 }
 
-const SYSTEM_PROMPT = `You are reading a printed stock-check form for 'Pen-Key Déli-caf'.
-Each row contains an item name, an ITEM ID in square brackets like [FRZ_HOG_PORK_PORT], and a handwritten integer in a boxed field labeled 'Count' or 'Freezer'/'Service'.
+const SYSTEM_PROMPT = `You are reading a printed stock-check form for 'Penki Ops - Daily Stock Check'.
+Each row has a NUMBER (1, 2, 3...), an item name, and handwritten counts in boxes labeled 'F:' (Freezer), 'S:' (Service), or 'Qty:'.
 Return ONLY valid JSON. No markdown. No extra text.
 
 Schema:
@@ -25,24 +25,24 @@ Schema:
   "session_id": string,
   "confidence": number,
   "counts": {
-     "FREEZER": { [item_id:string]: number },
-     "SERVICE": { [item_id:string]: number }
+     "FREEZER": { [item_number:string]: number },
+     "SERVICE": { [item_number:string]: number }
   },
   "row_confidence": {
-     "FREEZER": { [item_id:string]: number },
-     "SERVICE": { [item_id:string]: number }
+     "FREEZER": { [item_number:string]: number },
+     "SERVICE": { [item_number:string]: number }
   },
-  "issues": Array<{ "item_id": string, "bucket": "FREEZER"|"SERVICE", "reason": string }>
+  "issues": Array<{ "item_number": string, "bucket": "FREEZER"|"SERVICE", "reason": string }>
 }
 
 Rules:
-- Extract integers only, no units.
+- Use the item NUMBER (1, 2, 3...) as the key, not the item name
+- Extract integers only from handwritten boxes
 - If blank: issue reason='blank'
 - If unclear: row_confidence < 0.7 and issue reason='uncertain'
-- If scan quality poor (blur/dark/glare): confidence < 0.5 and include issue with item_id='__SCAN__'
-- Do not invent item_ids not present on the sheet.
-- For items with both Freezer and Service columns, extract both counts.
-- For items with only Count column, put value in SERVICE bucket.`
+- If scan quality poor: confidence < 0.5 and include issue with item_number='0'
+- For items with F: and S: boxes, extract both counts
+- For items with only Qty: box, put value in SERVICE bucket`
 
 export async function POST(request: NextRequest) {
   try {
