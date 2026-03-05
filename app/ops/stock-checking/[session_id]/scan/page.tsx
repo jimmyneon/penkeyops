@@ -139,10 +139,12 @@ export default function ScanPage() {
   }
 
   const scanImage = async (imageDataUrl: string) => {
+    console.log('scanImage called, sessionId:', sessionId)
     setScanning(true)
     setError(null)
 
     try {
+      console.log('Sending scan request to API...')
       const response = await fetch('/api/stock-checking/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,15 +154,20 @@ export default function ScanPage() {
         })
       })
 
+      console.log('Scan API response status:', response.status)
       const result = await response.json()
+      console.log('Scan API result:', result)
 
       if (!response.ok) {
+        console.error('Scan API error:', result)
         throw new Error(result.error || 'Scan failed')
       }
 
+      console.log('Scan successful, redirecting to review...')
       // Redirect to review page
       router.push(`/ops/stock-checking/${sessionId}/review`)
     } catch (err: any) {
+      console.error('Scan error:', err)
       setError(err.message || 'Failed to scan image. Please try again.')
       setScanning(false)
       setCapturing(false)
@@ -248,18 +255,22 @@ export default function ScanPage() {
                 className="w-full rounded-2xl shadow-2xl"
               />
               
-              {/* A4 overlay guide */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute inset-8 border-4 border-primary/50 rounded-xl">
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary"></div>
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary"></div>
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary"></div>
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary"></div>
-                </div>
-                <div className="absolute top-4 left-0 right-0 text-center">
-                  <p className="text-white text-sm font-semibold bg-black/50 inline-block px-4 py-2 rounded-full">
-                    Align sheet within guides
-                  </p>
+              {/* A4 overlay guide - portrait aspect ratio 1:1.414 */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                {/* A4 portrait box centered */}
+                <div className="relative" style={{ width: '70%', aspectRatio: '1/1.414' }}>
+                  <div className="absolute inset-0 border-4 border-primary/60 rounded-lg">
+                    {/* Corner markers */}
+                    <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-primary"></div>
+                    <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-primary"></div>
+                    <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary"></div>
+                    <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary"></div>
+                  </div>
+                  <div className="absolute -top-12 left-0 right-0 text-center">
+                    <p className="text-white text-sm font-semibold bg-black/70 inline-block px-4 py-2 rounded-full">
+                      Fit A4 sheet within frame
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
