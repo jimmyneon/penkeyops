@@ -261,8 +261,8 @@ export default function ScanPage() {
               
               {/* A4 overlay guide - portrait aspect ratio 1:1.414 */}
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                {/* A4 portrait box centered */}
-                <div className="relative" style={{ width: '70%', aspectRatio: '1/1.414' }}>
+                {/* A4 portrait box - fills most of screen for maximum detail */}
+                <div className="relative" style={{ width: '90%', aspectRatio: '1/1.414' }}>
                   <div className="absolute inset-0 border-4 border-primary/60 rounded-lg">
                     {/* Corner markers */}
                     <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-primary"></div>
@@ -270,8 +270,8 @@ export default function ScanPage() {
                     <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary"></div>
                     <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary"></div>
                   </div>
-                  <div className="absolute -top-12 left-0 right-0 text-center">
-                    <p className="text-white text-sm font-semibold bg-black/70 inline-block px-4 py-2 rounded-full">
+                  <div className="absolute -top-10 left-0 right-0 text-center">
+                    <p className="text-white text-xs font-semibold bg-black/70 inline-block px-3 py-1 rounded-full">
                       Fit A4 sheet within frame
                     </p>
                   </div>
