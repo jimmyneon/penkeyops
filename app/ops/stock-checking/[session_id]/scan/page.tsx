@@ -98,11 +98,15 @@ export default function ScanPage() {
     const imageDataUrl = canvas.toDataURL('image/jpeg', 0.75)
 
     // Quality checks
+    console.log('Checking image quality...')
     const qualityCheck = await checkImageQuality(canvas, context)
+    console.log('Quality check result:', qualityCheck)
     
     if (!qualityCheck.passed) {
+      console.log('Quality check failed:', qualityCheck.message)
       setError(qualityCheck.message)
       setCapturing(false)
+      // Don't auto-restart - let user see error and manually retry
       return
     }
 
@@ -124,17 +128,17 @@ export default function ScanPage() {
       totalBrightness += avg
     }
     const avgBrightness = totalBrightness / (data.length / 4)
+    console.log('Average brightness:', avgBrightness)
 
-    if (avgBrightness < 50) {
-      return { passed: false, message: 'Image too dark. Please improve lighting.' }
+    // Relaxed thresholds for real-world conditions
+    if (avgBrightness < 30) {
+      return { passed: false, message: 'Image too dark. Please improve lighting and try again.' }
     }
-    if (avgBrightness > 230) {
-      return { passed: false, message: 'Image too bright or washed out. Reduce glare.' }
+    if (avgBrightness > 245) {
+      return { passed: false, message: 'Image too bright. Reduce glare and try again.' }
     }
 
-    // Basic blur detection would go here (variance of Laplacian)
-    // Simplified for now
-
+    // Skip blur detection for now - OpenAI Vision is robust enough
     return { passed: true, message: '' }
   }
 
@@ -171,7 +175,7 @@ export default function ScanPage() {
       setError(err.message || 'Failed to scan image. Please try again.')
       setScanning(false)
       setCapturing(false)
-      startCamera() // Restart camera for retry
+      // Don't auto-restart - let user see the error and decide to retry
     }
   }
 
