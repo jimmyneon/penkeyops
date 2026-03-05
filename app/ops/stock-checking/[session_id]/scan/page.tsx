@@ -19,26 +19,38 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null)
 
   const startCamera = async () => {
+    console.log('startCamera called')
     try {
+      console.log('Requesting camera access...')
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
       })
       
+      console.log('Camera stream obtained:', stream)
+      
       if (videoRef.current) {
+        console.log('Setting video srcObject')
         videoRef.current.srcObject = stream
+        
+        // Set camera active immediately
+        console.log('Setting cameraActive to true')
+        setCameraActive(true)
+        setError(null)
+        
         // Wait for video metadata to load, then play
         videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded, playing...')
           videoRef.current?.play().catch(err => {
             console.error('Video play error:', err)
             setError('Failed to start video playback')
           })
         }
-        setCameraActive(true)
-        setError(null)
+      } else {
+        console.error('videoRef.current is null')
       }
     } catch (err) {
-      setError('Camera access denied. Please enable camera permissions.')
       console.error('Camera error:', err)
+      setError('Camera access denied. Please enable camera permissions.')
     }
   }
 
@@ -154,6 +166,8 @@ export default function ScanPage() {
     setCapturing(false)
     startCamera()
   }
+
+  console.log('Render - cameraActive:', cameraActive, 'scanning:', scanning, 'capturing:', capturing)
 
   return (
     <div className="min-h-screen bg-background">
