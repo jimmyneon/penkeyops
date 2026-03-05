@@ -64,19 +64,25 @@ export async function POST(request: NextRequest) {
     
     yPos += 12
 
-    // Helper to draw item row - compact
+    // Helper to draw item row - compact with simple numbering
+    let itemNumber = 0
     const drawItemRow = (item: typeof items[0], showFreezer: boolean) => {
       if (yPos > 280) {
         doc.addPage()
         yPos = 10
       }
 
+      itemNumber++
+      
+      // Simple number instead of long ID
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${itemNumber}.`, 10, yPos)
+      doc.setFont('helvetica', 'normal')
+      
+      // Item name
       doc.setFontSize(8)
-      doc.text(item.name, 10, yPos)
-      doc.setFontSize(6)
-      doc.setTextColor(100, 100, 100)
-      doc.text(`[${item.item_id}]`, 10, yPos + 3)
-      doc.setTextColor(0, 0, 0)
+      doc.text(item.name, 18, yPos)
 
       if (showFreezer) {
         // Freezer box
